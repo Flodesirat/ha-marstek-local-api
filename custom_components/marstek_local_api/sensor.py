@@ -26,7 +26,7 @@ from homeassistant.helpers.entity import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .const import DATA_COORDINATOR, DEVICE_MODEL_VENUS_D, DOMAIN
+from .const import DATA_COORDINATOR, DEVICE_MODEL_VENUS_A, DEVICE_MODEL_VENUS_D, DOMAIN
 from .coordinator import MarstekDataUpdateCoordinator, MarstekMultiDeviceCoordinator
 
 _LOGGER = logging.getLogger(__name__)
@@ -59,7 +59,8 @@ def _available_capacity_kwh(data: dict) -> float | None:
     if soc is None or rated is None:
         return None
     try:
-        return _wh_to_kwh((100 - float(soc)) * float(rated) / 100)
+        return (100 - float(soc)) * float(rated) /100
+        #return _wh_to_kwh((100 - float(soc)) * float(rated) /100)
     except (TypeError, ValueError):
         return None
 
@@ -173,7 +174,7 @@ SENSOR_TYPES: tuple[MarstekSensorEntityDescription, ...] = (
     MarstekSensorEntityDescription(
         key="battery_available_capacity",
         name="Available capacity",
-        native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
+        native_unit_of_measurement=UnitOfEnergy.WATT_HOUR,
         device_class=SensorDeviceClass.ENERGY_STORAGE,
         state_class=SensorStateClass.MEASUREMENT,
         value_fn=_available_capacity_kwh,
@@ -571,8 +572,8 @@ async def async_setup_entry(
                     )
                 )
 
-            # Add PV sensors if Venus D
-            if device_coordinator.device_model == DEVICE_MODEL_VENUS_D:
+            # Add PV sensors if Venus D or Venus A
+            if (device_coordinator.device_model in [DEVICE_MODEL_VENUS_D, DEVICE_MODEL_VENUS_A]):
                 for description in PV_SENSOR_TYPES:
                     entities.append(
                         MarstekMultiDeviceSensor(
@@ -611,8 +612,8 @@ async def async_setup_entry(
                 )
             )
 
-        # Add PV sensors if Venus D
-        if coordinator.device_model == DEVICE_MODEL_VENUS_D:
+        # Add PV sensors if Venus D or Venus A
+        if coordinator.device_model in [DEVICE_MODEL_VENUS_D, DEVICE_MODEL_VENUS_A]:
             for description in PV_SENSOR_TYPES:
                 entities.append(
                     MarstekSensor(

@@ -2,10 +2,10 @@
 
 ## Overview
 
-Home Assistant integration for Marstek energy storage systems using the official Local API (Rev 1.0). Provides comprehensive monitoring and control of Marstek Venus C/D/E devices without requiring cloud connectivity or additional hardware.
+Home Assistant integration for Marstek energy storage systems using the official Local API (Rev 1.0). Provides comprehensive monitoring and control of Marstek Venus A/C/D/E devices without requiring cloud connectivity or additional hardware.
 
 **Version:** 1.0
-**Target Devices:** Venus C, Venus D, Venus E
+**Target Devices:** Venus A, Venus C, Venus D, Venus E
 **Protocol:** JSON over UDP (port 30000+)
 **Requirements:** Local API enabled in Marstek app
 
@@ -76,7 +76,7 @@ marstek_local_api/
 
 | Field | Type | Sensor | Description |
 |-------|------|--------|-------------|
-| device | string | ✅ Text | Device model (VenusC, VenusD, VenusE) |
+| device | string | ✅ Text | Device model (VenusA, VenusC, VenusD, VenusE) |
 | ver | number | ✅ Sensor | Firmware version |
 | ble_mac | string | ✅ Text | Bluetooth MAC |
 | wifi_mac | string | ✅ Text | WiFi MAC |

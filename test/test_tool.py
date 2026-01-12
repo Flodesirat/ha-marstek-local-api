@@ -193,6 +193,7 @@ sensor_module = load_module_from_file(f"{package_name}.sensor", integration_path
 MarstekUDPClient = api_module.MarstekUDPClient
 DEFAULT_PORT = const.DEFAULT_PORT
 DEVICE_MODEL_VENUS_D = const.DEVICE_MODEL_VENUS_D
+DEVICE_MODEL_VENUS_A = const.DEVICE_MODEL_VENUS_A
 SENSOR_TYPES = sensor_module.SENSOR_TYPES
 MODE_AUTO = const.MODE_AUTO
 MODE_AI = const.MODE_AI
@@ -506,7 +507,7 @@ async def discover_and_test(target_ip: str | None) -> None:
 
             api.host = device["ip"]
             firmware = device.get("firmware", "Unknown")
-            is_venus_d = device.get("name") == DEVICE_MODEL_VENUS_D
+            battery_with_pv_inputs = (device.get("name") in [DEVICE_MODEL_VENUS_D, DEVICE_MODEL_VENUS_A])
 
             await asyncio.sleep(1.0)
             print("📋 Device Information")
@@ -663,7 +664,7 @@ async def discover_and_test(target_ip: str | None) -> None:
                 print("  ⚠️  Failed to get energy meter status")
             print()
 
-            if is_venus_d:
+            if battery_with_pv_inputs:
                 await asyncio.sleep(1.0)
                 print("☀️  Solar PV Status (Venus D)")
                 print("-" * 80)

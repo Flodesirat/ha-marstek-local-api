@@ -18,6 +18,7 @@ from .const import (
     COMMAND_MAX_ATTEMPTS,
     COMMAND_TIMEOUT,
     DEFAULT_SCAN_INTERVAL,
+    DEVICE_MODEL_VENUS_A,
     DEVICE_MODEL_VENUS_D,
     UPDATE_INTERVAL_FAST,
     UPDATE_INTERVAL_MEDIUM,
@@ -540,8 +541,8 @@ class MarstekDataUpdateCoordinator(DataUpdateCoordinator):
                 except Exception as err:
                     _LOGGER.debug("Failed to get EM status: %s", err)
 
-                # Only query PV for Venus D
-                if self.device_model == DEVICE_MODEL_VENUS_D:
+                # Only query PV for Venus D and Venus A
+                if (self.device_model == DEVICE_MODEL_VENUS_D) or (self.device_model == DEVICE_MODEL_VENUS_A):
                     try:
                         await asyncio.sleep(_command_delay())  # Delay between API calls
                         pv_status = await self.api.get_pv_status(**_command_kwargs())
