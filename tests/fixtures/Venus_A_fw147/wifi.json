@@ -1,0 +1,10 @@
+{
+  "id": 0,
+  "wifi_mac": "b4b024a2887a",
+  "ssid": "Jack4GHotspot",
+  "rssi": -27,
+  "sta_ip": "192.168.0.104",
+  "sta_gate": "192.168.0.1",
+  "sta_mask": "255.255.255.0",
+  "sta_dns": "192.168.0.1"
+}

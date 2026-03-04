@@ -1,0 +1,19 @@
+{
+  "id": 0,
+  "pv1_power": 0,
+  "pv1_voltage": 0,
+  "pv1_current": 0,
+  "pv1_state": 0,
+  "pv2_power": 0,
+  "pv2_voltage": 0,
+  "pv2_current": 0,
+  "pv2_state": 0,
+  "pv3_power": 0,
+  "pv3_voltage": 0,
+  "pv3_current": 0,
+  "pv3_state": 0,
+  "pv4_power": 0,
+  "pv4_voltage": 0,
+  "pv4_current": 0,
+  "pv4_state": 0
+}

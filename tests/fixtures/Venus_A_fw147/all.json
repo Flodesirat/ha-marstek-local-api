@@ -1,0 +1,83 @@
+{
+  "_meta": {
+    "captured_at": "2026-03-04T21:22:49.968735+00:00",
+    "device_ip": "192.168.0.104",
+    "device_model": "Venus_A",
+    "firmware_version": 147
+  },
+  "device": {
+    "device": "Venus A",
+    "ver": 147,
+    "ble_mac": "bc2a33600dca",
+    "wifi_mac": "b4b024a2887a",
+    "wifi_name": "Jack4GHotspot",
+    "ip": "192.168.0.104"
+  },
+  "wifi": {
+    "id": 0,
+    "wifi_mac": "b4b024a2887a",
+    "ssid": "Jack4GHotspot",
+    "rssi": -27,
+    "sta_ip": "192.168.0.104",
+    "sta_gate": "192.168.0.1",
+    "sta_mask": "255.255.255.0",
+    "sta_dns": "192.168.0.1"
+  },
+  "ble": {
+    "id": 0,
+    "state": "connect",
+    "ble_mac": "bc2a33600dca"
+  },
+  "battery": {
+    "id": 0,
+    "soc": 20,
+    "charg_flag": true,
+    "dischrg_flag": true,
+    "bat_temp": 29.0,
+    "bat_capacity": 869.0,
+    "rated_capacity": 4160.0
+  },
+  "pv": {
+    "id": 0,
+    "pv1_power": 0,
+    "pv1_voltage": 0,
+    "pv1_current": 0,
+    "pv1_state": 0,
+    "pv2_power": 0,
+    "pv2_voltage": 0,
+    "pv2_current": 0,
+    "pv2_state": 0,
+    "pv3_power": 0,
+    "pv3_voltage": 0,
+    "pv3_current": 0,
+    "pv3_state": 0,
+    "pv4_power": 0,
+    "pv4_voltage": 0,
+    "pv4_current": 0,
+    "pv4_state": 0
+  },
+  "mode": {
+    "id": 0,
+    "mode": "Auto",
+    "ongrid_power": 0,
+    "offgrid_power": 0,
+    "bat_soc": 20,
+    "ct_state": 0,
+    "a_power": 0,
+    "b_power": 0,
+    "c_power": 0,
+    "total_power": 0,
+    "input_energy": 0,
+    "output_energy": 0
+  },
+  "em": {
+    "id": 0,
+    "ct_state": 1,
+    "a_power": 3688,
+    "b_power": 0,
+    "c_power": 0,
+    "total_power": 3688,
+    "input_energy": 0,
+    "output_energy": 0
+  }
+}

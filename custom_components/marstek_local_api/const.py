@@ -7,7 +7,7 @@ DOMAIN: Final = "marstek_local_api"
 CONF_PORT: Final = "port"
 
 # Default values
-DEFAULT_PORT: Final = 30000
+DEFAULT_PORT: Final = 50000
 DEFAULT_SCAN_INTERVAL: Final = 10  # Base interval in seconds
 DISCOVERY_TIMEOUT: Final = 9  # Discovery window in seconds
 DISCOVERY_BROADCAST_INTERVAL: Final = 2  # Broadcast every 2 seconds during discovery

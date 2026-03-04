@@ -1,0 +1,9 @@
+{
+  "id": 0,
+  "soc": 20,
+  "charg_flag": true,
+  "dischrg_flag": true,
+  "bat_temp": 29.0,
+  "bat_capacity": 869.0,
+  "rated_capacity": 4160.0
+}

@@ -53,7 +53,7 @@ marstek_local_api/
 │  │  - Battery sensors                      │   │
 │  │  - Grid/CT sensors                      │   │
 │  │  - Energy system sensors                │   │
-│  │  - PV sensors (Venus D)                 │   │
+│  │  - PV sensors (Venus A/                 │   │
 │  │  - Network sensors                      │   │
 │  │  - Calculated sensors                   │   │
 │  └─────────────────────────────────────────┘   │
@@ -62,7 +62,7 @@ marstek_local_api/
                      │ JSON/UDP (port 30000+)
                      ▼
           ┌──────────────────────┐
-          │  Marstek Venus E     │
+          │  Marstek Venus       │
           │  (192.168.x.x:30000) │
           └──────────────────────┘
 ```

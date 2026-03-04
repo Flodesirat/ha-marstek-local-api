@@ -1,0 +1,14 @@
+{
+  "id": 0,
+  "mode": "Auto",
+  "ongrid_power": 0,
+  "offgrid_power": 0,
+  "bat_soc": 20,
+  "ct_state": 0,
+  "a_power": 0,
+  "b_power": 0,
+  "c_power": 0,
+  "total_power": 0,
+  "input_energy": 0,
+  "output_energy": 0
+}

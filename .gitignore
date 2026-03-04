@@ -42,3 +42,7 @@ test/logs/
 
 # Git worktrees
 .worktrees/
+
+# CI / test artifacts
+.venv/
+report.xml
