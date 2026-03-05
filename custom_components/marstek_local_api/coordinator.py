@@ -20,6 +20,7 @@ from .const import (
     DEFAULT_SCAN_INTERVAL,
     DEVICE_MODEL_VENUS_A,
     DEVICE_MODEL_VENUS_D,
+    STALE_DATA_THRESHOLD,
     UPDATE_INTERVAL_FAST,
     UPDATE_INTERVAL_MEDIUM,
     UPDATE_INTERVAL_SLOW,
@@ -395,7 +396,7 @@ class MarstekDataUpdateCoordinator(DataUpdateCoordinator):
         elapsed = time.time() - last_update
 
         # Calculate max age (update interval * threshold)
-        max_age = self.update_interval.total_seconds() * self.STALENESS_THRESHOLD
+        max_age = STALE_DATA_THRESHOLD
 
         return elapsed < max_age
 
@@ -464,8 +465,8 @@ class MarstekDataUpdateCoordinator(DataUpdateCoordinator):
                 except Exception as err:
                     _LOGGER.warning("Failed to get device info on first update: %s", err)
 
-            # High priority - every update (~60s)
-            # ES.GetStatus and Bat.GetStatus for real-time power/energy data
+            # High priority - every update (10s)
+            # ES.GetStatus for real-time power/energy data
             try:
                 await asyncio.sleep(_command_delay())  # Delay between API calls
                 es_status = await self.api.get_es_status(**_command_kwargs())
@@ -496,50 +497,52 @@ class MarstekDataUpdateCoordinator(DataUpdateCoordinator):
                 self.category_last_updated["es"] = time.time()
                 had_success = True
 
+            # High priority (continued) - every update (10s)
+            # EM.GetStatus for real-time CT/grid data
             try:
                 await asyncio.sleep(_command_delay())  # Delay between API calls
-                battery_status = await self.api.get_battery_status(**_command_kwargs())
+                em_status = await self.api.get_em_status(**_command_kwargs())
+                if em_status:
+                    data["em"] = em_status
+                    self.category_last_updated["em"] = time.time()
+                    had_success = True
             except Exception as err:
-                _LOGGER.debug("Failed to get battery status: %s", err)
-                battery_status = None
+                _LOGGER.debug("Failed to get EM status: %s", err)
 
-            if battery_status:
-                # Scale firmware/hardware-dependent values
-                if "bat_temp" in battery_status:
-                    battery_status["bat_temp"] = self.compatibility.scale_value(
-                        battery_status["bat_temp"], "bat_temp"
-                    )
-                if "bat_capacity" in battery_status:
-                    battery_status["bat_capacity"] = self.compatibility.scale_value(
-                        battery_status["bat_capacity"], "bat_capacity"
-                    )
-                if "bat_voltage" in battery_status:
-                    battery_status["bat_voltage"] = self.compatibility.scale_value(
-                        battery_status["bat_voltage"], "bat_voltage"
-                    )
-                if "bat_current" in battery_status:
-                    battery_status["bat_current"] = self.compatibility.scale_value(
-                        battery_status["bat_current"], "bat_current"
-                    )
-                data["battery"] = battery_status
-                self.category_last_updated["battery"] = time.time()
-                had_success = True
-
-            # Medium priority - every 5th update (~300s)
-            # EM, PV, Mode - slower-changing data
+            # Medium priority - every 6th update (60s)
+            # Bat.GetStatus, PV - slower-changing data
             run_medium = self.update_count == 1 or self.update_count % UPDATE_INTERVAL_MEDIUM == 0
             if is_first_update and not had_success:
                 run_medium = False
             if run_medium:
                 try:
                     await asyncio.sleep(_command_delay())  # Delay between API calls
-                    em_status = await self.api.get_em_status(**_command_kwargs())
-                    if em_status:
-                        data["em"] = em_status
-                        self.category_last_updated["em"] = time.time()
-                        had_success = True
+                    battery_status = await self.api.get_battery_status(**_command_kwargs())
                 except Exception as err:
-                    _LOGGER.debug("Failed to get EM status: %s", err)
+                    _LOGGER.debug("Failed to get battery status: %s", err)
+                    battery_status = None
+
+                if battery_status:
+                    # Scale firmware/hardware-dependent values
+                    if "bat_temp" in battery_status:
+                        battery_status["bat_temp"] = self.compatibility.scale_value(
+                            battery_status["bat_temp"], "bat_temp"
+                        )
+                    if "bat_capacity" in battery_status:
+                        battery_status["bat_capacity"] = self.compatibility.scale_value(
+                            battery_status["bat_capacity"], "bat_capacity"
+                        )
+                    if "bat_voltage" in battery_status:
+                        battery_status["bat_voltage"] = self.compatibility.scale_value(
+                            battery_status["bat_voltage"], "bat_voltage"
+                        )
+                    if "bat_current" in battery_status:
+                        battery_status["bat_current"] = self.compatibility.scale_value(
+                            battery_status["bat_current"], "bat_current"
+                        )
+                    data["battery"] = battery_status
+                    self.category_last_updated["battery"] = time.time()
+                    had_success = True
 
                 # Only query PV for Venus D and Venus A
                 if (self.device_model == DEVICE_MODEL_VENUS_D) or (self.device_model == DEVICE_MODEL_VENUS_A):
@@ -553,18 +556,8 @@ class MarstekDataUpdateCoordinator(DataUpdateCoordinator):
                     except Exception as err:
                         _LOGGER.debug("Failed to get PV status: %s", err)
 
-                try:
-                    await asyncio.sleep(_command_delay())  # Delay between API calls
-                    mode_status = await self.api.get_es_mode(**_command_kwargs())
-                    if mode_status:
-                        data["mode"] = mode_status
-                        self.category_last_updated["mode"] = time.time()
-                        had_success = True
-                except Exception as err:
-                    _LOGGER.debug("Failed to get mode status: %s", err)
-
-            # Low priority - every 10th update (~600s)
-            # Device, WiFi, BLE - static/diagnostic data
+            # Low priority - every 60th update (600s)
+            # Device, WiFi, BLE, Mode - static/diagnostic data
             run_slow = self.update_count % UPDATE_INTERVAL_SLOW == 0
             if is_first_update and not had_success:
                 run_slow = False
@@ -599,6 +592,16 @@ class MarstekDataUpdateCoordinator(DataUpdateCoordinator):
                         had_success = True
                 except Exception as err:
                     _LOGGER.debug("Failed to get BLE status: %s", err)
+
+                try:
+                    await asyncio.sleep(_command_delay())  # Delay between API calls
+                    mode_status = await self.api.get_es_mode(**_command_kwargs())
+                    if mode_status and "mode" in mode_status:
+                        data["mode"] = {"mode": mode_status["mode"]}
+                        self.category_last_updated["mode"] = time.time()
+                        had_success = True
+                except Exception as err:
+                    _LOGGER.debug("Failed to get mode status: %s", err)
 
             # Increment update counter
             self.update_count += 1

@@ -293,20 +293,146 @@ Example warnings:
 Quick note for issue reports (EN): always attach the integration diagnostics export and relevant HA logs when filing a bug — it is required for effective troubleshooting.
 
 
-### Standalone device tool
+### Standalone tools
 
-In the repository you'll find `test/test_tool.py`, a CLI that reuses the integration code to diagnose and control batteries outside Home Assistant:
+The `test/` directory contains several CLI utilities that work outside Home Assistant — no HA install, no config entry required. Run them with plain Python 3.
+
+#### `test_tool.py` — diagnostics and control
+
+Reuses the integration code to diagnose and control batteries:
 
 ```bash
 cd test
-python3 test_tool.py discover                       # discover and print diagnostics
-python3 test_tool.py discover --ip 192.168.7.101    # target a specific IP
-python3 test_tool.py set-test-schedules             # apply test schedules
-python3 test_tool.py clear-schedules                # clear manual schedules
+python3 test_tool.py discover                        # discover devices and print full diagnostics
+python3 test_tool.py discover --ip 192.168.7.101     # target a specific IP
+python3 test_tool.py set-test-schedules              # apply two sample charge/discharge schedules
+python3 test_tool.py clear-schedules                 # disable all 10 schedule slots
 python3 test_tool.py set-passive --power -2000 --duration 3600
 python3 test_tool.py set-mode auto --ip 192.168.7.101
 ```
 
-The default `discover` command runs the full diagnostic suite. Additional subcommands allow you to verify manual scheduling, passive mode, and operating mode changes without installing Home Assistant.
+The `discover` command runs the full diagnostic suite (device info, battery, ES, CT, WiFi, BLE). The other subcommands let you verify scheduling, passive mode, and operating-mode changes without going through Home Assistant.
+
+---
+
+#### `test/capture_fixtures.py` — collect real device data for tests
+
+**Why:** The integration's sensor scaling and value functions depend on exact field names and raw values that vary by model and firmware. Testing against real device data ensures the code matches what the hardware actually sends, not just what the API documentation describes.
+
+**What it does:** Queries every known API endpoint (`Marstek.GetDevice`, `ES.GetStatus`, `Bat.GetStatus`, `EM.GetStatus`, `ES.GetMode`, `PV.GetStatus`, `Wifi.GetStatus`, `BLE.GetStatus`) and saves the raw JSON responses as fixture files under `tests/fixtures/<model>_fw<version>/`.
+
+```bash
+# Auto-discover and capture
+python3 test/capture_fixtures.py
+
+# Direct IP (faster, no broadcast)
+python3 test/capture_fixtures.py --ip 192.168.0.104
+
+# Custom output directory
+python3 test/capture_fixtures.py --ip 192.168.0.104 --out path/to/dir
+```
+
+Output structure after a successful run:
+
+```
+tests/fixtures/Venus_A_fw147/
+├── all.json        ← combined fixture with metadata (used by the test suite)
+├── battery.json
+├── ble.json
+├── device.json
+├── em.json
+├── es.json
+├── mode.json
+├── pv.json
+└── wifi.json
+```
+
+The `all.json` file is loaded automatically by the test suite (`tests/conftest.py`). Adding fixtures for new models or firmware versions automatically extends test coverage — no code changes needed.
+
+> **Tip:** Run this script whenever you update the device firmware or get access to a new model (Venus C, D, E). Each new fixture set is a regression baseline.
+
+---
+
+#### `test/comm_quality.py` — measure UDP communication reliability
+
+**Why:** The Marstek Local API runs over UDP without any guaranteed delivery. Timeouts, packet loss, and high latency are the primary sources of integration instability. This tool measures communication quality directly on the wire so you can distinguish device-side problems (firmware, load, WiFi signal) from integration-side problems (polling rate, timeout tuning).
+
+**What it does:** Sends repeated requests at a configurable interval and tracks per-method statistics: response rate, loss percentage, and latency (average, p95, max). Results are displayed live in the terminal and optionally exported as JSON.
+
+```bash
+# 60-second test, auto-discover
+python3 test/comm_quality.py
+
+# Direct IP, 5-minute test, save results
+python3 test/comm_quality.py --ip 192.168.0.104 --duration 300 --out results.json
+
+# Focus on a single method, fast polling
+python3 test/comm_quality.py --ip 192.168.0.104 --method ES.GetStatus --interval 5
+
+# Poll multiple specific methods
+python3 test/comm_quality.py --ip 192.168.0.104 \
+  --method ES.GetStatus --method Bat.GetStatus --interval 10
+```
+
+Live output example:
+
+```
+  [████████████░░░░░░░░░░░░░░░░░░]    40s / 60s
+
+  Method                 Sent     OK    Loss      Avg      p95      Max  Quality
+  ──────────────────────────────────────────────────────────────────────────────
+  ES.GetStatus              4      4   0.0%    128ms    145ms    160ms  ████████████████████
+  Bat.GetStatus             4      3  25.0%   112ms    130ms    130ms  ███████████████░░░░░
+  EM.GetStatus              4      4   0.0%     95ms    110ms    118ms  ████████████████████
+  ES.GetMode                4      4   0.0%    102ms    115ms    121ms  ████████████████████
+```
+
+Use `Ctrl+C` at any time to stop and display the final summary. The `--out` JSON report includes all individual latency samples for offline analysis.
+
+> **Typical findings:** `ES.GetStatus` tends to have the highest loss rate on older firmware. If loss > 5% at the default 10s interval, try increasing `--interval` to 15–20s and check the device's WiFi signal (`wifi_rssi` sensor). Loss > 20% consistently suggests a firmware or hardware issue worth reporting to Marstek.
+
+---
+
+#### `test/mping.py` — ping-like latency tool
+
+**Why:** `comm_quality.py` gives aggregated statistics over a long run. `mping.py` gives you *immediate* per-packet feedback — exactly like the standard `ping` command — so you can watch latency spike in real time, correlate losses with events (WiFi drop, battery state change), and quickly validate a timeout value.
+
+**What it does:** Sends one request per second (configurable) and prints each result as it arrives. On exit (Ctrl+C or `--count` reached), prints min/avg/max RTT statistics.
+
+```bash
+# Default: ES.GetStatus, auto-discover
+python3 test/mping.py
+
+# Specific IP and command
+python3 test/mping.py --ip 192.168.0.104
+python3 test/mping.py --ip 192.168.0.104 --cmd Bat.GetStatus
+python3 test/mping.py --ip 192.168.0.104 --cmd EM.GetStatus
+
+# Send exactly 20 pings, one every 2 seconds
+python3 test/mping.py --ip 192.168.0.104 --count 20 --interval 2
+
+# Available commands: ES.GetStatus, Bat.GetStatus, EM.GetStatus,
+#                     ES.GetMode, Marstek.GetDevice
+```
+
+Output example:
+
+```
+MPING 192.168.0.104: method=ES.GetStatus, timeout=2000ms
+response seq=1  time=68.2ms
+response seq=2  time=74.5ms
+response seq=3  time=312.1ms
+timeout    seq=4 (>2000ms)
+response seq=5  time=1419.3ms
+response seq=6  time=71.0ms
+^C
+--- 192.168.0.104 ES.GetStatus ping statistics ---
+6 requests, 5 responses, 16.7% loss
+rtt min/avg/max = 68.2/389.0/1419.3 ms
+```
+
+A timeout followed by a very high latency response (e.g. >1000ms) is the signature of a **WiFi reconnection** on the device side — the device dropped its WiFi association and rejoined. This is normal for Marstek batteries and is why the integration keeps the previous state for 5 minutes before marking entities as "unknown".
+
+---
 
 This repo is a fork from https://github.com/jaapp/ha-marstek-local-api (January 2026)

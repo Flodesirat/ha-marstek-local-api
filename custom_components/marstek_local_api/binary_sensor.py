@@ -33,6 +33,7 @@ class MarstekBinarySensorEntityDescription(BinarySensorEntityDescription):
 
     value_fn: Callable[[dict], bool] | None = None
     available_fn: Callable[[dict], bool] | None = None
+    category: str | None = None
 
 
 BINARY_SENSOR_TYPES: tuple[MarstekBinarySensorEntityDescription, ...] = (
@@ -42,11 +43,13 @@ BINARY_SENSOR_TYPES: tuple[MarstekBinarySensorEntityDescription, ...] = (
         name="Charging enabled",
         device_class=BinarySensorDeviceClass.BATTERY_CHARGING,
         value_fn=lambda data: data.get("battery", {}).get("charg_flag", False),
+        category="battery",
     ),
     MarstekBinarySensorEntityDescription(
         key="discharging_enabled",
         name="Discharging enabled",
         value_fn=lambda data: data.get("battery", {}).get("dischrg_flag", False),
+        category="battery",
     ),
     # Bluetooth connection
     MarstekBinarySensorEntityDescription(
@@ -54,6 +57,7 @@ BINARY_SENSOR_TYPES: tuple[MarstekBinarySensorEntityDescription, ...] = (
         name="Bluetooth connected",
         device_class=BinarySensorDeviceClass.CONNECTIVITY,
         value_fn=lambda data: data.get("ble", {}).get("state") == BLE_STATE_CONNECT,
+        category="ble",
     ),
     # CT connection
     MarstekBinarySensorEntityDescription(
@@ -61,6 +65,7 @@ BINARY_SENSOR_TYPES: tuple[MarstekBinarySensorEntityDescription, ...] = (
         name="CT connected",
         device_class=BinarySensorDeviceClass.CONNECTIVITY,
         value_fn=lambda data: data.get("em", {}).get("ct_state") == CT_STATE_CONNECTED,
+        category="em",
     ),
 )
 
@@ -134,6 +139,9 @@ class MarstekBinarySensor(CoordinatorEntity, BinarySensorEntity):
     @property
     def is_on(self) -> bool | None:
         """Return true if the binary sensor is on."""
+        if self.entity_description.category:
+            if not self.coordinator.is_category_fresh(self.entity_description.category):
+                return None
         if self.entity_description.value_fn:
             return self.entity_description.value_fn(self.coordinator.data)
         return None
@@ -182,6 +190,9 @@ class MarstekMultiDeviceBinarySensor(CoordinatorEntity, BinarySensorEntity):
     @property
     def is_on(self) -> bool | None:
         """Return true if the binary sensor is on."""
+        if self.entity_description.category:
+            if not self.device_coordinator.is_category_fresh(self.entity_description.category):
+                return None
         if self.entity_description.value_fn:
             device_data = self.coordinator.get_device_data(self.device_mac)
             return self.entity_description.value_fn(device_data)

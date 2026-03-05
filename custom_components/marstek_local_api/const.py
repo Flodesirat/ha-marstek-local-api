@@ -18,7 +18,7 @@ UPDATE_INTERVAL_MEDIUM: Final = 6  # EM, PV, Mode (60s)
 UPDATE_INTERVAL_SLOW: Final = 60  # Device, WiFi, BLE (600s)
 
 # Communication timeouts
-COMMAND_TIMEOUT: Final = 5  # Timeout for commands in seconds
+COMMAND_TIMEOUT: Final = 2  # Timeout for commands in seconds
 MAX_RETRIES: Final = 5  # Maximum retries for critical commands
 RETRY_DELAY: Final = 2  # Delay between retries in seconds
 COMMAND_MAX_ATTEMPTS: Final = 3  # Attempts per command before giving up
@@ -26,7 +26,7 @@ COMMAND_BACKOFF_BASE: Final = 1.5  # Base delay for command retry backoff
 COMMAND_BACKOFF_FACTOR: Final = 2.0  # Multiplier for successive backoff delays
 COMMAND_BACKOFF_MAX: Final = 12.0  # Upper bound on backoff delay
 COMMAND_BACKOFF_JITTER: Final = 0.4  # Additional random jitter for backoff
-UNAVAILABLE_THRESHOLD: Final = 120  # Seconds before marking device unavailable
+STALE_DATA_THRESHOLD: Final = 300  # Seconds before data is considered stale (5 minutes)
 
 # API Methods
 METHOD_GET_DEVICE: Final = "Marstek.GetDevice"
