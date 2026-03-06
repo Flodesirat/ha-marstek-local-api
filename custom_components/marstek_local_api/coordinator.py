@@ -40,12 +40,18 @@ class MarstekMultiDeviceCoordinator(DataUpdateCoordinator):
         devices: list[dict[str, Any]],
         scan_interval: int = DEFAULT_SCAN_INTERVAL,
         config_entry: ConfigEntry | None = None,
+        command_timeout: int = COMMAND_TIMEOUT,
+        command_max_attempts: int = COMMAND_MAX_ATTEMPTS,
+        stale_data_threshold: int = STALE_DATA_THRESHOLD,
     ) -> None:
         """Initialize the multi-device coordinator."""
         self.devices = devices
         self.device_coordinators: dict[str, MarstekDataUpdateCoordinator] = {}
         self.update_count = 1
         self._config_entry = config_entry
+        self.command_timeout = command_timeout
+        self.command_max_attempts = command_max_attempts
+        self.stale_data_threshold = stale_data_threshold
 
         super().__init__(
             hass,
@@ -54,7 +60,7 @@ class MarstekMultiDeviceCoordinator(DataUpdateCoordinator):
             update_interval=timedelta(seconds=scan_interval),
         )
         # Allow enough time for a full round of command retries during each refresh.
-        self._timeout = COMMAND_TIMEOUT * COMMAND_MAX_ATTEMPTS + 5
+        self._timeout = self.command_timeout * self.command_max_attempts + 5
 
     async def async_setup(self) -> None:
         """Set up individual device coordinators."""
@@ -67,6 +73,8 @@ class MarstekMultiDeviceCoordinator(DataUpdateCoordinator):
                 host=device_data["host"],
                 port=device_data["port"],
                 remote_port=device_data["port"],
+                command_timeout=self.command_timeout,
+                command_max_attempts=self.command_max_attempts,
             )
 
             try:
@@ -85,6 +93,9 @@ class MarstekMultiDeviceCoordinator(DataUpdateCoordinator):
                 scan_interval=self.update_interval.total_seconds(),
                 config_entry=self._config_entry,
                 device_mac=mac,
+                command_timeout=self.command_timeout,
+                command_max_attempts=self.command_max_attempts,
+                stale_data_threshold=self.stale_data_threshold,
             )
 
             self.device_coordinators[mac] = coordinator
@@ -263,11 +274,17 @@ class MarstekDataUpdateCoordinator(DataUpdateCoordinator):
         scan_interval: int = DEFAULT_SCAN_INTERVAL,
         config_entry: ConfigEntry | None = None,
         device_mac: str | None = None,
+        command_timeout: int = COMMAND_TIMEOUT,
+        command_max_attempts: int = COMMAND_MAX_ATTEMPTS,
+        stale_data_threshold: int = STALE_DATA_THRESHOLD,
     ) -> None:
         """Initialize the coordinator."""
         self.api = api
         self.firmware_version = firmware_version
         self.device_model = device_model
+        self.command_timeout = command_timeout
+        self.command_max_attempts = command_max_attempts
+        self.stale_data_threshold = stale_data_threshold
         self.update_count = 1  # Start at 1 to skip slow updates on first refresh
         self.last_message_timestamp: float | None = None
         jitter_cap = min(2.5, max(0.5, scan_interval * 0.1))
@@ -294,7 +311,7 @@ class MarstekDataUpdateCoordinator(DataUpdateCoordinator):
             update_interval=timedelta(seconds=scan_interval),
         )
         # Default coordinator timeout (10s) is too short for staged polling + retries.
-        self._timeout = COMMAND_TIMEOUT * COMMAND_MAX_ATTEMPTS + 5
+        self._timeout = self.command_timeout * self.command_max_attempts + 5
 
     def _update_device_version(self, device_info: dict) -> None:
         """Update device firmware/hardware version and reinitialize compatibility matrix if changed.
@@ -396,7 +413,7 @@ class MarstekDataUpdateCoordinator(DataUpdateCoordinator):
         elapsed = time.time() - last_update
 
         # Calculate max age (update interval * threshold)
-        max_age = STALE_DATA_THRESHOLD
+        max_age = self.stale_data_threshold
 
         return elapsed < max_age
 

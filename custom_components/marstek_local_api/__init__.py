@@ -9,10 +9,13 @@ from homeassistant.core import HomeAssistant
 
 from .api import MarstekUDPClient
 from .const import (
+    COMMAND_MAX_ATTEMPTS,
+    COMMAND_TIMEOUT,
     CONF_PORT,
     DATA_COORDINATOR,
     DEFAULT_SCAN_INTERVAL,
     DOMAIN,
+    STALE_DATA_THRESHOLD,
 )
 from .coordinator import MarstekDataUpdateCoordinator, MarstekMultiDeviceCoordinator
 from .services import async_setup_services, async_unload_services
@@ -26,8 +29,11 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up Marstek Local API from a config entry."""
     hass.data.setdefault(DOMAIN, {})
 
-    # Get scan interval from options (Design Doc §297-302)
+    # Get polling/timeout options (with defaults from constants)
     scan_interval = entry.options.get("scan_interval", DEFAULT_SCAN_INTERVAL)
+    command_timeout = entry.options.get("command_timeout", COMMAND_TIMEOUT)
+    command_max_attempts = entry.options.get("command_max_attempts", COMMAND_MAX_ATTEMPTS)
+    stale_data_threshold = entry.options.get("stale_data_threshold", STALE_DATA_THRESHOLD)
 
     # Check if this is a multi-device or single-device entry
     if "devices" in entry.data:
@@ -40,6 +46,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             devices=entry.data["devices"],
             scan_interval=scan_interval,
             config_entry=entry,
+            command_timeout=command_timeout,
+            command_max_attempts=command_max_attempts,
+            stale_data_threshold=stale_data_threshold,
         )
 
         # Set up device coordinators
@@ -78,6 +87,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             device_model=entry.data.get("device", ""),
             scan_interval=scan_interval,
             config_entry=entry,
+            command_timeout=command_timeout,
+            command_max_attempts=command_max_attempts,
+            stale_data_threshold=stale_data_threshold,
         )
 
         # Fetch initial data

@@ -14,8 +14,8 @@ DISCOVERY_BROADCAST_INTERVAL: Final = 2  # Broadcast every 2 seconds during disc
 
 # Update intervals (in multiples of base interval)
 UPDATE_INTERVAL_FAST: Final = 1  # ES, Battery status (10s)
-UPDATE_INTERVAL_MEDIUM: Final = 6  # EM, PV, Mode (60s)
-UPDATE_INTERVAL_SLOW: Final = 60  # Device, WiFi, BLE (600s)
+UPDATE_INTERVAL_MEDIUM: Final = 10  # EM, PV, Mode (100s)
+UPDATE_INTERVAL_SLOW: Final = 100  # Device, WiFi, BLE (1000s)
 
 # Communication timeouts
 COMMAND_TIMEOUT: Final = 2  # Timeout for commands in seconds

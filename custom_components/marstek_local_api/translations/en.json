@@ -47,9 +47,12 @@
       },
       "scan_interval": {
         "title": "Update Interval",
-        "description": "Configure how often data is refreshed",
+        "description": "Configure how often data is refreshed and communication parameters",
         "data": {
-          "scan_interval": "Update Interval (seconds)"
+          "scan_interval": "Update Interval (seconds)",
+          "command_timeout": "Command timeout (seconds)",
+          "command_max_attempts": "Max retry attempts",
+          "stale_data_threshold": "Stale data threshold (seconds)"
         }
       },
       "rename_device": {

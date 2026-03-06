@@ -46,7 +46,7 @@ _clients_by_port = {}  # Map port -> list of clients
 class MarstekUDPClient:
     """UDP client for Marstek Local API communication."""
 
-    def __init__(self, hass, host: str | None = None, port: int = DEFAULT_PORT, remote_port: int | None = None) -> None:
+    def __init__(self, hass, host: str | None = None, port: int = DEFAULT_PORT, remote_port: int | None = None, command_timeout: int = COMMAND_TIMEOUT, command_max_attempts: int = COMMAND_MAX_ATTEMPTS) -> None:
         """Initialize the UDP client.
 
         Args:
@@ -54,11 +54,15 @@ class MarstekUDPClient:
             host: Target host IP (None for broadcast)
             port: Local port to bind to (0 for ephemeral)
             remote_port: Remote port to send to (defaults to DEFAULT_PORT)
+            command_timeout: Timeout per attempt in seconds
+            command_max_attempts: Max attempts per command
         """
         self.hass = hass
         self.host = host
         self.port = port
         self.remote_port = remote_port or DEFAULT_PORT
+        self.command_timeout = command_timeout
+        self.command_max_attempts = command_max_attempts
         self.transport: asyncio.DatagramTransport | None = None
         self.protocol: MarstekProtocol | None = None
         self._handlers: list = []
@@ -225,8 +229,8 @@ class MarstekUDPClient:
         if params is None:
             params = {"id": 0}
 
-        effective_timeout = timeout if timeout is not None else COMMAND_TIMEOUT
-        attempt_limit = max_attempts if max_attempts is not None else COMMAND_MAX_ATTEMPTS
+        effective_timeout = timeout if timeout is not None else self.command_timeout
+        attempt_limit = max_attempts if max_attempts is not None else self.command_max_attempts
 
         # Generate unique integer message ID (required for Venus E firmware V139+)
         self._msg_id_counter = (self._msg_id_counter + 1) % 1000000  # Wrap at 1 million

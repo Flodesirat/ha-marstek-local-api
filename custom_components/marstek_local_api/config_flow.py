@@ -17,7 +17,7 @@ from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers import config_validation as cv
 
 from .api import MarstekAPIError, MarstekUDPClient
-from .const import CONF_PORT, DATA_COORDINATOR, DEFAULT_PORT, DEFAULT_SCAN_INTERVAL, DOMAIN
+from .const import COMMAND_MAX_ATTEMPTS, COMMAND_TIMEOUT, CONF_PORT, DATA_COORDINATOR, DEFAULT_PORT, DEFAULT_SCAN_INTERVAL, DOMAIN, STALE_DATA_THRESHOLD
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -345,22 +345,25 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     @staticmethod
     def async_get_options_flow(config_entry: ConfigEntry) -> OptionsFlow:
         """Get the options flow for this handler."""
-        return OptionsFlow(config_entry)
+        return OptionsFlow()
 
 
 class OptionsFlow(config_entries.OptionsFlow):
     """Handle options flow for Marstek Local API."""
 
-    def __init__(self, config_entry: ConfigEntry) -> None:
+    def __init__(self) -> None:
         """Initialise the options flow."""
-        self.config_entry = config_entry
-        self._devices: list[dict[str, Any]] = list(config_entry.data.get("devices", []))
+        self._devices: list[dict[str, Any]] = []
         self._discovered_devices: list[dict[str, Any]] = []
 
     async def async_step_init(
         self, user_input: dict[str, Any] | None = None
     ) -> FlowResult:
         """Entry-point for options flow; present available actions."""
+        # Lazily populate _devices from config_entry (available as property from parent)
+        if not self._devices:
+            self._devices = list(self.config_entry.data.get("devices", []))
+
         actions: dict[str, str] = {
             "scan_interval": "Adjust update interval",
         }
@@ -397,20 +400,31 @@ class OptionsFlow(config_entries.OptionsFlow):
     async def async_step_scan_interval(
         self, user_input: dict[str, Any] | None = None
     ) -> FlowResult:
-        """Adjust polling interval."""
+        """Adjust polling interval and communication parameters."""
         if user_input is not None:
             return self.async_create_entry(title="", data=user_input)
 
+        opts = self.config_entry.options
         return self.async_show_form(
             step_id="scan_interval",
             data_schema=vol.Schema(
                 {
                     vol.Optional(
                         "scan_interval",
-                        default=self.config_entry.options.get(
-                            "scan_interval", DEFAULT_SCAN_INTERVAL
-                        ),
+                        default=opts.get("scan_interval", DEFAULT_SCAN_INTERVAL),
                     ): vol.All(vol.Coerce(int), vol.Range(min=15, max=900)),
+                    vol.Optional(
+                        "command_timeout",
+                        default=opts.get("command_timeout", COMMAND_TIMEOUT),
+                    ): vol.All(vol.Coerce(int), vol.Range(min=1, max=10)),
+                    vol.Optional(
+                        "command_max_attempts",
+                        default=opts.get("command_max_attempts", COMMAND_MAX_ATTEMPTS),
+                    ): vol.All(vol.Coerce(int), vol.Range(min=1, max=10)),
+                    vol.Optional(
+                        "stale_data_threshold",
+                        default=opts.get("stale_data_threshold", STALE_DATA_THRESHOLD),
+                    ): vol.All(vol.Coerce(int), vol.Range(min=60, max=3600)),
                 }
             ),
         )

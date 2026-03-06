@@ -96,3 +96,22 @@ async def test_stale_data_goes_unknown(hass, setup_integration):
     await hass.async_block_till_done()
 
     assert hass.states.get(entity_id).state == STATE_UNKNOWN
+
+
+@pytest.mark.asyncio
+async def test_custom_stale_threshold_respected(hass, setup_integration_custom_stale):
+    """stale_data_threshold from entry options (120 s) overrides the default (300 s)."""
+    entry = setup_integration_custom_stale
+    coordinator = hass.data[DOMAIN][entry.entry_id]["coordinator"]
+
+    assert coordinator.stale_data_threshold == 120
+
+    entity_id = _entity_id(hass, "sensor", "battery_soc")
+    assert hass.states.get(entity_id).state == "20"
+
+    # 121 s old — above the custom 120 s threshold but below the default 300 s
+    coordinator.category_last_updated["battery"] = time.time() - 121
+    coordinator.async_set_updated_data(coordinator.data)
+    await hass.async_block_till_done()
+
+    assert hass.states.get(entity_id).state == STATE_UNKNOWN

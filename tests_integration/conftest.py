@@ -62,12 +62,8 @@ def config_entry(hass) -> MockConfigEntry:
     return entry
 
 
-@pytest.fixture
-async def setup_integration(hass, config_entry, mock_api) -> MockConfigEntry:
-    """Set up the integration with a mocked UDP client; returns the config entry."""
-    # HA's loader imports custom_components as a namespace package pointing only
-    # at testing_config/custom_components/.  Extend __path__ and clear the
-    # cached (empty) integration dict so HA re-scans on first lookup.
+async def _setup_entry(hass, entry, mock_api) -> None:
+    """Internal helper: mount custom_components path, clear cache, set up entry."""
     import custom_components as _cc
     from homeassistant import loader as _loader
 
@@ -75,13 +71,44 @@ async def setup_integration(hass, config_entry, mock_api) -> MockConfigEntry:
     if _cc_path not in _cc.__path__:
         _cc.__path__.append(_cc_path)
 
-    # Drop the pre-populated empty cache so async_get_custom_components re-scans
     hass.data.pop(_loader.DATA_CUSTOM_COMPONENTS, None)
 
     with (
         patch("custom_components.marstek_local_api.MarstekUDPClient", return_value=mock_api),
         patch("custom_components.marstek_local_api.coordinator.asyncio.sleep"),
     ):
-        await hass.config_entries.async_setup(config_entry.entry_id)
+        await hass.config_entries.async_setup(entry.entry_id)
         await hass.async_block_till_done()
+
+
+@pytest.fixture
+async def setup_integration(hass, config_entry, mock_api) -> MockConfigEntry:
+    """Set up the integration with a mocked UDP client; returns the config entry."""
+    await _setup_entry(hass, config_entry, mock_api)
     return config_entry
+
+
+@pytest.fixture
+def config_entry_custom_stale(hass) -> MockConfigEntry:
+    """Config entry with a custom stale_data_threshold of 120 s (via options)."""
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        data={
+            "host": "192.168.0.104",
+            "port": 50000,
+            "device": "Venus A",
+            "firmware": 147,
+            "wifi_mac": "b4b024a2887a",
+            "ble_mac": "bc2a33600dca",
+        },
+        options={"stale_data_threshold": 120},
+    )
+    entry.add_to_hass(hass)
+    return entry
+
+
+@pytest.fixture
+async def setup_integration_custom_stale(hass, config_entry_custom_stale, mock_api) -> MockConfigEntry:
+    """Set up integration with stale_data_threshold=120 s option."""
+    await _setup_entry(hass, config_entry_custom_stale, mock_api)
+    return config_entry_custom_stale
