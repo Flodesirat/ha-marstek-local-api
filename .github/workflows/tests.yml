@@ -19,13 +19,18 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements-test.txt
 
-      - name: Run tests
-        run: python -m pytest tests/ -v --tb=short --junit-xml=report.xml
+      - name: Run unit tests
+        run: python -m pytest tests/ -v --tb=short --junit-xml=report-unit.xml
+
+      - name: Run integration tests
+        run: python -m pytest tests_integration/ -v --tb=short --junit-xml=report-integration.xml
 
       - name: Upload test results
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: test-results
-          path: report.xml
+          path: |
+            report-unit.xml
+            report-integration.xml
           retention-days: 7
