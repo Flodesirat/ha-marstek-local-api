@@ -15,6 +15,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.data_entry_flow import FlowResult
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers import config_validation as cv
+from homeassistant.helpers.selector import NumberSelector, NumberSelectorConfig, NumberSelectorMode
 
 from .api import MarstekAPIError, MarstekUDPClient
 from .const import COMMAND_MAX_ATTEMPTS, COMMAND_TIMEOUT, CONF_PORT, DATA_COORDINATOR, DEFAULT_PORT, DEFAULT_SCAN_INTERVAL, DOMAIN, STALE_DATA_THRESHOLD
@@ -365,7 +366,7 @@ class OptionsFlow(config_entries.OptionsFlow):
             self._devices = list(self.config_entry.data.get("devices", []))
 
         actions: dict[str, str] = {
-            "scan_interval": "Adjust update interval",
+            "scan_interval": "Adjust communication timings and thresholds",
         }
 
         if self._devices:
@@ -412,19 +413,19 @@ class OptionsFlow(config_entries.OptionsFlow):
                     vol.Optional(
                         "scan_interval",
                         default=opts.get("scan_interval", DEFAULT_SCAN_INTERVAL),
-                    ): vol.All(vol.Coerce(int), vol.Range(min=15, max=900)),
+                    ): NumberSelector(NumberSelectorConfig(min=15, max=900, mode=NumberSelectorMode.BOX)),
                     vol.Optional(
                         "command_timeout",
                         default=opts.get("command_timeout", COMMAND_TIMEOUT),
-                    ): vol.All(vol.Coerce(int), vol.Range(min=1, max=10)),
+                    ): NumberSelector(NumberSelectorConfig(min=1, max=10, mode=NumberSelectorMode.BOX)),
                     vol.Optional(
                         "command_max_attempts",
                         default=opts.get("command_max_attempts", COMMAND_MAX_ATTEMPTS),
-                    ): vol.All(vol.Coerce(int), vol.Range(min=1, max=10)),
+                    ): NumberSelector(NumberSelectorConfig(min=1, max=10, mode=NumberSelectorMode.BOX)),
                     vol.Optional(
                         "stale_data_threshold",
                         default=opts.get("stale_data_threshold", STALE_DATA_THRESHOLD),
-                    ): vol.All(vol.Coerce(int), vol.Range(min=60, max=3600)),
+                    ): NumberSelector(NumberSelectorConfig(min=60, max=3600, mode=NumberSelectorMode.BOX)),
                 }
             ),
         )
