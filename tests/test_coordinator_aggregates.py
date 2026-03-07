@@ -28,6 +28,7 @@ def _make_multi_coordinator(device_data_list: list[dict]) -> MarstekMultiDeviceC
     coordinator.devices = []
     coordinator.device_coordinators = {}
     coordinator.update_count = 1
+    coordinator.dod_percent = 80
 
     for i, device_data in enumerate(device_data_list):
         mac = f"aabbccdd{i:04x}"

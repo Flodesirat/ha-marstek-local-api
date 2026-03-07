@@ -257,6 +257,7 @@ def venus_a_coordinator_data(venus_a_fw147_raw, venus_a_compatibility) -> dict:
         "em": raw.get("em"),
         # es deliberately absent — mirrors a first-poll where ES.GetStatus timed out
         "_diagnostic": {"last_message_seconds": 5, "target_interval": 10, "actual_interval": 10},
+        "_config": {"dod_percent": 80},
     }
 
 

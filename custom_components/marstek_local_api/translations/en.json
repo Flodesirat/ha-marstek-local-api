@@ -61,6 +61,16 @@
           "stale_data_threshold": "How old data can be (in seconds) before entities show as unavailable."
         }
       },
+      "battery_settings": {
+        "title": "Battery settings",
+        "description": "These values are informational only and do not configure the device. Set them to match what you have configured in the Marstek app.",
+        "data": {
+          "dod_percent": "Depth of Discharge (%)"
+        },
+        "data_description": {
+          "dod_percent": "Maximum percentage of rated capacity the battery can use (e.g. 80 means it stops at 20% SOC). Must match your Marstek app setting — this does not change the device configuration."
+        }
+      },
       "rename_device": {
         "title": "Rename Device",
         "description": "Update how the device appears in Home Assistant",

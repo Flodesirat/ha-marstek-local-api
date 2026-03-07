@@ -20,6 +20,7 @@ from .const import (
     DEFAULT_SCAN_INTERVAL,
     DEVICE_MODEL_VENUS_A,
     DEVICE_MODEL_VENUS_D,
+    DOD_DEFAULT,
     STALE_DATA_THRESHOLD,
     UPDATE_INTERVAL_FAST,
     UPDATE_INTERVAL_MEDIUM,
@@ -43,6 +44,7 @@ class MarstekMultiDeviceCoordinator(DataUpdateCoordinator):
         command_timeout: int = COMMAND_TIMEOUT,
         command_max_attempts: int = COMMAND_MAX_ATTEMPTS,
         stale_data_threshold: int = STALE_DATA_THRESHOLD,
+        dod_percent: int = DOD_DEFAULT,
     ) -> None:
         """Initialize the multi-device coordinator."""
         self.devices = devices
@@ -52,6 +54,7 @@ class MarstekMultiDeviceCoordinator(DataUpdateCoordinator):
         self.command_timeout = command_timeout
         self.command_max_attempts = command_max_attempts
         self.stale_data_threshold = stale_data_threshold
+        self.dod_percent = dod_percent
 
         super().__init__(
             hass,
@@ -96,6 +99,7 @@ class MarstekMultiDeviceCoordinator(DataUpdateCoordinator):
                 command_timeout=self.command_timeout,
                 command_max_attempts=self.command_max_attempts,
                 stale_data_threshold=self.stale_data_threshold,
+                dod_percent=self.dod_percent,
             )
 
             self.device_coordinators[mac] = coordinator
@@ -167,6 +171,20 @@ class MarstekMultiDeviceCoordinator(DataUpdateCoordinator):
             )
         else:
             aggregates["total_available_capacity"] = None
+
+        # DOD-derived aggregates
+        aggregates["total_usable_capacity"] = total_capacity * self.dod_percent / 100
+        aggregates["total_available_until_dod"] = max(
+            0.0,
+            aggregates["total_remaining_capacity"] - total_capacity * (1 - self.dod_percent / 100),
+        )
+        if aggregates.get("average_soc") is not None and self.dod_percent > 0:
+            min_soc = 100 - self.dod_percent
+            aggregates["usable_soc"] = max(
+                0.0, min(100.0, (aggregates["average_soc"] - min_soc) / self.dod_percent * 100)
+            )
+        else:
+            aggregates["usable_soc"] = None
 
         # Combined state
         power_values = [
@@ -250,12 +268,14 @@ class MarstekMultiDeviceCoordinator(DataUpdateCoordinator):
         await asyncio.gather(*update_tasks, return_exceptions=True)
 
         # Build combined data structure
+        aggregates = self._calculate_aggregates()
         data = {
             "devices": {
                 mac: coordinator.data
                 for mac, coordinator in self.device_coordinators.items()
             },
-            "aggregates": self._calculate_aggregates(),
+            "aggregates": aggregates,
+            "_config": {"dod_percent": self.dod_percent},
         }
 
         return data
@@ -277,6 +297,7 @@ class MarstekDataUpdateCoordinator(DataUpdateCoordinator):
         command_timeout: int = COMMAND_TIMEOUT,
         command_max_attempts: int = COMMAND_MAX_ATTEMPTS,
         stale_data_threshold: int = STALE_DATA_THRESHOLD,
+        dod_percent: int = DOD_DEFAULT,
     ) -> None:
         """Initialize the coordinator."""
         self.api = api
@@ -285,6 +306,7 @@ class MarstekDataUpdateCoordinator(DataUpdateCoordinator):
         self.command_timeout = command_timeout
         self.command_max_attempts = command_max_attempts
         self.stale_data_threshold = stale_data_threshold
+        self.dod_percent = dod_percent
         self.update_count = 1  # Start at 1 to skip slow updates on first refresh
         self.last_message_timestamp: float | None = None
         jitter_cap = min(2.5, max(0.5, scan_interval * 0.1))
@@ -657,6 +679,7 @@ class MarstekDataUpdateCoordinator(DataUpdateCoordinator):
             diagnostic_data.update(self._build_command_diagnostics("bat", bat_stats))
 
             data["_diagnostic"] = diagnostic_data
+            data["_config"] = {"dod_percent": self.dod_percent}
 
             return data
 

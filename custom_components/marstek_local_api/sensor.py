@@ -26,7 +26,7 @@ from homeassistant.helpers.entity import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .const import DATA_COORDINATOR, DEVICE_MODEL_VENUS_A, DEVICE_MODEL_VENUS_D, DOMAIN
+from .const import DATA_COORDINATOR, DEVICE_MODEL_VENUS_A, DEVICE_MODEL_VENUS_D, DOD_DEFAULT, DOMAIN
 from .coordinator import MarstekDataUpdateCoordinator, MarstekMultiDeviceCoordinator
 
 _LOGGER = logging.getLogger(__name__)
@@ -61,6 +61,50 @@ def _available_capacity_kwh(data: dict) -> float | None:
     try:
         return (100 - float(soc)) * float(rated) /100
         #return _wh_to_kwh((100 - float(soc)) * float(rated) /100)
+    except (TypeError, ValueError):
+        return None
+
+
+def _usable_capacity(data: dict) -> float | None:
+    """Usable capacity = rated_capacity × DOD% (Wh)."""
+    rated = data.get("battery", {}).get("rated_capacity")
+    dod = data.get("_config", {}).get("dod_percent", DOD_DEFAULT)
+    if rated is None:
+        return None
+    try:
+        return float(rated) * dod / 100
+    except (TypeError, ValueError):
+        return None
+
+
+def _available_until_dod(data: dict) -> float | None:
+    """Energy available before hitting the DOD limit (Wh)."""
+    battery = data.get("battery", {})
+    rated = battery.get("rated_capacity")
+    current = battery.get("bat_capacity")
+    dod = data.get("_config", {}).get("dod_percent", DOD_DEFAULT)
+    if rated is None or current is None:
+        return None
+    try:
+        reserved = float(rated) * (1 - dod / 100)
+        return max(0.0, float(current) - reserved)
+    except (TypeError, ValueError):
+        return None
+
+
+def _usable_soc(data: dict) -> float | None:
+    """Percentage of usable capacity remaining (0–100%).
+
+    usable_soc = (soc - min_soc) / dod_percent × 100
+    where min_soc = 100 - dod_percent.
+    """
+    soc = data.get("battery", {}).get("soc")
+    dod = data.get("_config", {}).get("dod_percent", DOD_DEFAULT)
+    if soc is None or dod == 0:
+        return None
+    try:
+        min_soc = 100 - dod
+        return max(0.0, min(100.0, (float(soc) - min_soc) / dod * 100))
     except (TypeError, ValueError):
         return None
 
@@ -178,6 +222,34 @@ SENSOR_TYPES: tuple[MarstekSensorEntityDescription, ...] = (
         device_class=SensorDeviceClass.ENERGY_STORAGE,
         state_class=SensorStateClass.MEASUREMENT,
         value_fn=_available_capacity_kwh,
+        category="battery",
+    ),
+    MarstekSensorEntityDescription(
+        key="battery_usable_capacity",
+        name="Usable capacity (DOD)",
+        native_unit_of_measurement=UnitOfEnergy.WATT_HOUR,
+        device_class=SensorDeviceClass.ENERGY_STORAGE,
+        state_class=SensorStateClass.MEASUREMENT,
+        value_fn=_usable_capacity,
+        category="battery",
+    ),
+    MarstekSensorEntityDescription(
+        key="battery_available_until_dod",
+        name="Available energy before DOD",
+        native_unit_of_measurement=UnitOfEnergy.WATT_HOUR,
+        device_class=SensorDeviceClass.ENERGY_STORAGE,
+        state_class=SensorStateClass.MEASUREMENT,
+        value_fn=_available_until_dod,
+        category="battery",
+    ),
+    MarstekSensorEntityDescription(
+        key="battery_usable_soc",
+        name="Usable state of charge",
+        native_unit_of_measurement=PERCENTAGE,
+        device_class=SensorDeviceClass.BATTERY,
+        state_class=SensorStateClass.MEASUREMENT,
+        suggested_display_precision=1,
+        value_fn=_usable_soc,
         category="battery",
     ),
     MarstekSensorEntityDescription(
@@ -460,6 +532,34 @@ AGGREGATE_SENSOR_TYPES: tuple[MarstekSensorEntityDescription, ...] = (
         device_class=SensorDeviceClass.ENERGY_STORAGE,
         state_class=SensorStateClass.MEASUREMENT,
         value_fn=lambda data: _wh_to_kwh(data.get("aggregates", {}).get("total_available_capacity")),
+        category="aggregates",
+    ),
+    MarstekSensorEntityDescription(
+        key="system_total_usable_capacity",
+        name="Total usable capacity (DOD)",
+        native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
+        device_class=SensorDeviceClass.ENERGY_STORAGE,
+        state_class=SensorStateClass.MEASUREMENT,
+        value_fn=lambda data: _wh_to_kwh(data.get("aggregates", {}).get("total_usable_capacity")),
+        category="aggregates",
+    ),
+    MarstekSensorEntityDescription(
+        key="system_total_available_until_dod",
+        name="Total available energy before DOD",
+        native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
+        device_class=SensorDeviceClass.ENERGY_STORAGE,
+        state_class=SensorStateClass.MEASUREMENT,
+        value_fn=lambda data: _wh_to_kwh(data.get("aggregates", {}).get("total_available_until_dod")),
+        category="aggregates",
+    ),
+    MarstekSensorEntityDescription(
+        key="system_usable_soc",
+        name="Usable state of charge",
+        native_unit_of_measurement=PERCENTAGE,
+        device_class=SensorDeviceClass.BATTERY,
+        state_class=SensorStateClass.MEASUREMENT,
+        suggested_display_precision=1,
+        value_fn=lambda data: data.get("aggregates", {}).get("usable_soc"),
         category="aggregates",
     ),
     MarstekSensorEntityDescription(

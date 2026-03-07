@@ -55,6 +55,82 @@ class TestBatterySensors:
         val = sensor_map["battery_error_code"].value_fn(venus_a_coordinator_data)
         assert val is None
 
+    def test_usable_capacity_default_dod(self, sensor_map, venus_a_coordinator_data):
+        """usable = rated_capacity * 80% = 4160 * 0.80 = 3328 Wh."""
+        val = sensor_map["battery_usable_capacity"].value_fn(venus_a_coordinator_data)
+        assert val == pytest.approx(3328.0)
+
+    def test_usable_capacity_custom_dod(self, sensor_map, venus_a_coordinator_data):
+        """DOD=50% → usable = 4160 * 0.50 = 2080 Wh."""
+        data = {**venus_a_coordinator_data, "_config": {"dod_percent": 50}}
+        val = sensor_map["battery_usable_capacity"].value_fn(data)
+        assert val == pytest.approx(2080.0)
+
+    def test_usable_capacity_no_rated_returns_none(self, sensor_map):
+        data = {"battery": {}, "_config": {"dod_percent": 80}}
+        val = sensor_map["battery_usable_capacity"].value_fn(data)
+        assert val is None
+
+    def test_available_until_dod_default(self, sensor_map, venus_a_coordinator_data):
+        """bat_capacity=869, rated=4160, DOD=80% → reserved=832, available=37 Wh."""
+        val = sensor_map["battery_available_until_dod"].value_fn(venus_a_coordinator_data)
+        assert val == pytest.approx(37.0)
+
+    def test_available_until_dod_custom(self, sensor_map, venus_a_coordinator_data):
+        """DOD=90% → reserved=416, available=869-416=453 Wh."""
+        data = {**venus_a_coordinator_data, "_config": {"dod_percent": 90}}
+        val = sensor_map["battery_available_until_dod"].value_fn(data)
+        assert val == pytest.approx(453.0)
+
+    def test_available_until_dod_below_limit_clamps_to_zero(self, sensor_map):
+        """SOC below DOD floor → returns 0, not negative."""
+        data = {
+            "battery": {"rated_capacity": 5000.0, "bat_capacity": 500.0},
+            "_config": {"dod_percent": 80},
+        }
+        # reserved = 5000 * 0.20 = 1000, current=500 → clamped to 0
+        val = sensor_map["battery_available_until_dod"].value_fn(data)
+        assert val == pytest.approx(0.0)
+
+    def test_available_until_dod_no_data_returns_none(self, sensor_map):
+        data = {"battery": {}, "_config": {"dod_percent": 80}}
+        val = sensor_map["battery_available_until_dod"].value_fn(data)
+        assert val is None
+
+    def test_available_until_dod_no_config_uses_default(self, sensor_map, venus_a_coordinator_data):
+        """Without _config key, DOD_DEFAULT (80%) is used."""
+        data = {k: v for k, v in venus_a_coordinator_data.items() if k != "_config"}
+        val = sensor_map["battery_available_until_dod"].value_fn(data)
+        assert val == pytest.approx(37.0)
+
+    def test_usable_soc_default_dod(self, sensor_map, venus_a_coordinator_data):
+        """soc=20%, DOD=80% → min_soc=20% → usable_soc=(20-20)/80*100=0%."""
+        val = sensor_map["battery_usable_soc"].value_fn(venus_a_coordinator_data)
+        assert val == pytest.approx(0.0)
+
+    def test_usable_soc_half_usable(self, sensor_map, venus_a_coordinator_data):
+        """soc=60%, DOD=80% → min_soc=20% → usable_soc=(60-20)/80*100=50%."""
+        data = {**venus_a_coordinator_data, "battery": {**venus_a_coordinator_data["battery"], "soc": 60}}
+        val = sensor_map["battery_usable_soc"].value_fn(data)
+        assert val == pytest.approx(50.0)
+
+    def test_usable_soc_full(self, sensor_map, venus_a_coordinator_data):
+        """soc=100%, DOD=80% → usable_soc=(100-20)/80*100=100%."""
+        data = {**venus_a_coordinator_data, "battery": {**venus_a_coordinator_data["battery"], "soc": 100}}
+        val = sensor_map["battery_usable_soc"].value_fn(data)
+        assert val == pytest.approx(100.0)
+
+    def test_usable_soc_below_min_clamps_to_zero(self, sensor_map, venus_a_coordinator_data):
+        """soc=10% below min_soc=20% → clamped to 0%."""
+        data = {**venus_a_coordinator_data, "battery": {**venus_a_coordinator_data["battery"], "soc": 10}}
+        val = sensor_map["battery_usable_soc"].value_fn(data)
+        assert val == pytest.approx(0.0)
+
+    def test_usable_soc_no_soc_returns_none(self, sensor_map):
+        data = {"battery": {}, "_config": {"dod_percent": 80}}
+        val = sensor_map["battery_usable_soc"].value_fn(data)
+        assert val is None
+
 
 # ---------------------------------------------------------------------------
 # Energy System sensors (ES data absent → defaults / idle)

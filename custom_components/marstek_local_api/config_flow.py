@@ -18,7 +18,7 @@ from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers.selector import NumberSelector, NumberSelectorConfig, NumberSelectorMode
 
 from .api import MarstekAPIError, MarstekUDPClient
-from .const import COMMAND_MAX_ATTEMPTS, COMMAND_TIMEOUT, CONF_PORT, DATA_COORDINATOR, DEFAULT_PORT, DEFAULT_SCAN_INTERVAL, DOMAIN, STALE_DATA_THRESHOLD
+from .const import COMMAND_MAX_ATTEMPTS, COMMAND_TIMEOUT, CONF_PORT, DATA_COORDINATOR, DEFAULT_PORT, DEFAULT_SCAN_INTERVAL, DOD_DEFAULT, DOMAIN, STALE_DATA_THRESHOLD
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -367,6 +367,7 @@ class OptionsFlow(config_entries.OptionsFlow):
 
         actions: dict[str, str] = {
             "scan_interval": "Adjust communication timings and thresholds",
+            "battery_settings": "Battery settings (DOD and usable capacity)",
         }
 
         if self._devices:
@@ -382,6 +383,8 @@ class OptionsFlow(config_entries.OptionsFlow):
             action = user_input["action"]
             if action == "scan_interval":
                 return await self.async_step_scan_interval()
+            if action == "battery_settings":
+                return await self.async_step_battery_settings()
             if action == "rename_device":
                 return await self.async_step_rename_device()
             if action == "remove_device":
@@ -403,7 +406,7 @@ class OptionsFlow(config_entries.OptionsFlow):
     ) -> FlowResult:
         """Adjust polling interval and communication parameters."""
         if user_input is not None:
-            return self.async_create_entry(title="", data=user_input)
+            return self.async_create_entry(title="", data={**self.config_entry.options, **user_input})
 
         opts = self.config_entry.options
         return self.async_show_form(
@@ -426,6 +429,26 @@ class OptionsFlow(config_entries.OptionsFlow):
                         "stale_data_threshold",
                         default=opts.get("stale_data_threshold", STALE_DATA_THRESHOLD),
                     ): NumberSelector(NumberSelectorConfig(min=60, max=3600, mode=NumberSelectorMode.BOX)),
+                }
+            ),
+        )
+
+    async def async_step_battery_settings(
+        self, user_input: dict[str, Any] | None = None
+    ) -> FlowResult:
+        """Configure battery parameters (informational only, does not configure the device)."""
+        if user_input is not None:
+            return self.async_create_entry(title="", data={**self.config_entry.options, **user_input})
+
+        opts = self.config_entry.options
+        return self.async_show_form(
+            step_id="battery_settings",
+            data_schema=vol.Schema(
+                {
+                    vol.Optional(
+                        "dod_percent",
+                        default=opts.get("dod_percent", DOD_DEFAULT),
+                    ): NumberSelector(NumberSelectorConfig(min=10, max=100, mode=NumberSelectorMode.BOX)),
                 }
             ),
         )
