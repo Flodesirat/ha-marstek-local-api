@@ -129,6 +129,48 @@ class TestCompatibilityMatrixFirmwareBoundary:
         assert m.scale_value(290, "bat_temp") == pytest.approx(2900.0)
 
 
+class TestPVPowerScaling:
+    """Verify pv_power scaling: Venus A ÷10, all other models unchanged."""
+
+    def test_venus_a_pv_power_scaled_by_10(self):
+        """VenusA FW 0+: raw in deca-W → divide by 10."""
+        m = CompatibilityMatrix(device_model="VenusA", firmware_version=147)
+        assert m.scale_value(1000, "pv_power") == pytest.approx(100.0)
+
+    def test_venus_a_pv_power_zero(self):
+        m = CompatibilityMatrix(device_model="VenusA", firmware_version=147)
+        assert m.scale_value(0, "pv_power") == pytest.approx(0.0)
+
+    def test_venus_a_pv_power_none(self):
+        m = CompatibilityMatrix(device_model="VenusA", firmware_version=147)
+        assert m.scale_value(None, "pv_power") is None
+
+    def test_venus_a_pv_power_high_fw_still_scaled(self):
+        """VenusA FW 999 (future): still uses FW 0 entry → ÷10."""
+        m = CompatibilityMatrix(device_model="VenusA", firmware_version=999)
+        assert m.scale_value(500, "pv_power") == pytest.approx(50.0)
+
+    def test_venus_d_pv_power_not_in_matrix_returns_raw(self):
+        """VenusD has no pv_power entry → raw value returned unchanged."""
+        m = CompatibilityMatrix(device_model="VenusD", firmware_version=154)
+        assert m.scale_value(1000, "pv_power") == pytest.approx(1000.0)
+
+    def test_venus_e_pv_power_not_in_matrix_returns_raw(self):
+        """VenusE has no pv_power entry → raw value returned unchanged."""
+        m = CompatibilityMatrix(device_model="VenusE", firmware_version=200)
+        assert m.scale_value(1000, "pv_power") == pytest.approx(1000.0)
+
+    def test_venus_c_pv_power_not_in_matrix_returns_raw(self):
+        """VenusC has no pv_power entry → raw value returned unchanged."""
+        m = CompatibilityMatrix(device_model="VenusC", firmware_version=154)
+        assert m.scale_value(1000, "pv_power") == pytest.approx(1000.0)
+
+    def test_venus_e_hw3_pv_power_not_in_matrix_returns_raw(self):
+        """VenusE 3.0 has no pv_power entry → raw value returned unchanged."""
+        m = CompatibilityMatrix(device_model="VenusE 3.0", firmware_version=139)
+        assert m.scale_value(1000, "pv_power") == pytest.approx(1000.0)
+
+
 class TestCompatibilityMatrixHardwareVersionParsing:
     """Verify hardware version extraction from model strings."""
 

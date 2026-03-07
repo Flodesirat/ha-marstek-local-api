@@ -543,6 +543,10 @@ class MarstekDataUpdateCoordinator(DataUpdateCoordinator):
                     es_status["total_load_energy"] = self.compatibility.scale_value(
                         es_status["total_load_energy"], "total_load_energy"
                     )
+                if "pv_power" in es_status:
+                    es_status["pv_power"] = self.compatibility.scale_value(
+                        es_status["pv_power"], "pv_power"
+                    )
 
                 data["es"] = es_status
                 self.category_last_updated["es"] = time.time()
@@ -601,6 +605,10 @@ class MarstekDataUpdateCoordinator(DataUpdateCoordinator):
                         await asyncio.sleep(_command_delay())  # Delay between API calls
                         pv_status = await self.api.get_pv_status(**_command_kwargs())
                         if pv_status:
+                            if "pv_power" in pv_status:
+                                pv_status["pv_power"] = self.compatibility.scale_value(
+                                    pv_status["pv_power"], "pv_power"
+                                )
                             data["pv"] = pv_status
                             self.category_last_updated["pv"] = time.time()
                             had_success = True

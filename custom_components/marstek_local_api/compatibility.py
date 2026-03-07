@@ -196,6 +196,11 @@ class CompatibilityMatrix:
             ("VenusE",HW_VERSION_2, 0): 100.0,    # All FW: raw in centi-A (÷100)
             ("VenusE",HW_VERSION_3, 0): 100.0,    # All FW: raw in centi-A (÷100)
         },
+
+        # PV power (W) - Venus A returns raw value in deca-W (÷10)
+        "pv_power": {
+            ("VenusA",HW_VERSION_2, 0): 10.0,     # FW 0+: raw value in deca-W (÷10)
+        },
     }
 
     def __init__(self, device_model: str, firmware_version: int) -> None:
