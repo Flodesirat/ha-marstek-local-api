@@ -330,7 +330,7 @@ class MarstekDataUpdateCoordinator(DataUpdateCoordinator):
         # Staleness tracking - track last successful update per category
         self.category_last_updated: dict[str, float] = {}
         self.STALENESS_THRESHOLD = 10  # missed updates before invalidation
-        self.STATIC_CATEGORIES = {"device", "wifi", "ble", "_diagnostic", "aggregates"}
+        self.STATIC_CATEGORIES = {"device", "wifi", "ble", "mode", "_diagnostic", "aggregates"}
 
         # Initialize compatibility matrix for version-specific scaling
         self.compatibility = CompatibilityMatrix(
