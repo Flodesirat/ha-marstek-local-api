@@ -295,7 +295,7 @@ SENSOR_TYPES: tuple[MarstekSensorEntityDescription, ...] = (
         state_class=SensorStateClass.MEASUREMENT,
         suggested_display_precision=0,
         value_fn=_time_to_full,
-        category="battery",
+        category="es",
     ),
     MarstekSensorEntityDescription(
         key="battery_time_to_dod",
@@ -305,7 +305,7 @@ SENSOR_TYPES: tuple[MarstekSensorEntityDescription, ...] = (
         state_class=SensorStateClass.MEASUREMENT,
         suggested_display_precision=0,
         value_fn=_time_to_dod,
-        category="battery",
+        category="es",
     ),
     MarstekSensorEntityDescription(
         key="grid_power",
