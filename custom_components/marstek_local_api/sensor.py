@@ -59,8 +59,7 @@ def _available_capacity_kwh(data: dict) -> float | None:
     if soc is None or rated is None:
         return None
     try:
-        return (100 - float(soc)) * float(rated) /100
-        #return _wh_to_kwh((100 - float(soc)) * float(rated) /100)
+        return _wh_to_kwh((100 - float(soc)) * float(rated) / 100)
     except (TypeError, ValueError):
         return None
 
@@ -253,7 +252,7 @@ SENSOR_TYPES: tuple[MarstekSensorEntityDescription, ...] = (
     MarstekSensorEntityDescription(
         key="battery_available_capacity",
         name="Available capacity",
-        native_unit_of_measurement=UnitOfEnergy.WATT_HOUR,
+        native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
         device_class=SensorDeviceClass.ENERGY_STORAGE,
         state_class=SensorStateClass.MEASUREMENT,
         value_fn=_available_capacity_kwh,
@@ -262,19 +261,19 @@ SENSOR_TYPES: tuple[MarstekSensorEntityDescription, ...] = (
     MarstekSensorEntityDescription(
         key="battery_usable_capacity",
         name="Usable capacity (DOD)",
-        native_unit_of_measurement=UnitOfEnergy.WATT_HOUR,
+        native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
         device_class=SensorDeviceClass.ENERGY_STORAGE,
         state_class=SensorStateClass.MEASUREMENT,
-        value_fn=_usable_capacity,
+        value_fn=lambda data: _wh_to_kwh(_usable_capacity(data)),
         category="battery",
     ),
     MarstekSensorEntityDescription(
         key="battery_available_until_dod",
         name="Available energy before DOD",
-        native_unit_of_measurement=UnitOfEnergy.WATT_HOUR,
+        native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
         device_class=SensorDeviceClass.ENERGY_STORAGE,
         state_class=SensorStateClass.MEASUREMENT,
-        value_fn=_available_until_dod,
+        value_fn=lambda data: _wh_to_kwh(_available_until_dod(data)),
         category="battery",
     ),
     MarstekSensorEntityDescription(
