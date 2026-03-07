@@ -40,7 +40,7 @@ from typing import Optional
 # Config
 # ---------------------------------------------------------------------------
 
-DEFAULT_PORT   = 50000
+DEFAULT_PORT   = 30000
 CMD_TIMEOUT    = 2.0   # seconds to wait per request
 METHODS        = [
     ("ES.GetStatus",  {"id": 0}),

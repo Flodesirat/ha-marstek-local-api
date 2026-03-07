@@ -7,7 +7,7 @@ tests/fixtures/<device_model>/ so they can be used as test data.
 Usage:
   python3 test/capture_fixtures.py                   # auto-discover
   python3 test/capture_fixtures.py --ip 192.168.1.10 # specific IP
-  python3 test/capture_fixtures.py --ip 192.168.1.10 --port 50000
+  python3 test/capture_fixtures.py --ip 192.168.1.10 --port 30000
   python3 test/capture_fixtures.py --out path/to/dir # custom output dir
 """
 
@@ -29,7 +29,7 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 INTEGRATION_PATH = REPO_ROOT / "custom_components" / "marstek_local_api"
 DEFAULT_OUTPUT_DIR = REPO_ROOT / "tests" / "fixtures"
 
-DEFAULT_PORT = 50000
+DEFAULT_PORT = 30000
 DISCOVERY_TIMEOUT = 9
 COMMAND_TIMEOUT = 10
 MAX_ATTEMPTS = 3

@@ -51,7 +51,7 @@ def config_entry(hass) -> MockConfigEntry:
         domain=DOMAIN,
         data={
             "host": "192.168.0.104",
-            "port": 50000,
+            "port": 30000,
             "device": "Venus A",
             "firmware": 147,
             "wifi_mac": "b4b024a2887a",
@@ -95,7 +95,7 @@ def config_entry_custom_stale(hass) -> MockConfigEntry:
         domain=DOMAIN,
         data={
             "host": "192.168.0.104",
-            "port": 50000,
+            "port": 30000,
             "device": "Venus A",
             "firmware": 147,
             "wifi_mac": "b4b024a2887a",

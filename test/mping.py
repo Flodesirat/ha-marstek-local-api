@@ -22,7 +22,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
 
-DEFAULT_PORT    = 50000
+DEFAULT_PORT    = 30000
 DEFAULT_CMD     = "ES.GetStatus"
 DEFAULT_PARAMS  = {"id": 0}
 DEFAULT_TIMEOUT = 2.0   # seconds — matches COMMAND_TIMEOUT in const.py

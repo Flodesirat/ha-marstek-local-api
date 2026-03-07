@@ -30,7 +30,7 @@ from typing import Optional
 # Config
 # ---------------------------------------------------------------------------
 
-DEFAULT_PORT      = 50000
+DEFAULT_PORT      = 30000
 DISCOVERY_TIMEOUT = 9
 COMMAND_TIMEOUT   = 2.0   # seconds to wait per request
 POLL_METHODS      = [

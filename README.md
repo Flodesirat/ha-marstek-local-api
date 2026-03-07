@@ -42,7 +42,7 @@ Or:
 3. If discovery misses a unit, choose **Manual IP entry** and provide the host/port you noted earlier.
 
 After setup you can return to **Settings → Devices & Services → Marstek Local API → Configure** to:
-- Rename devices, adjust the polling interval, or add/remove batteries to the existing multi-device entry.
+- Rename devices, add/remove batteries, or tune communication parameters (scan interval, command timeout, max retries, stale-data threshold).
 - Trigger discovery again when new batteries join the network.
 
 > **Important:** If you want all batteries to live under the same config entry (and keep the virtual **Marstek System** device), use the integration’s **Configure** button to add/remove batteries. The default Home Assistant “Add Device” button creates a brand-new config entry and a separate virtual system device.
@@ -65,32 +65,34 @@ After setup you can return to **Settings → Devices & Services → Marstek Loca
 
 ## 5. Entities
 
-| Category | Sensor (entity suffix) | Unit | Notes | Polling multiplier | Default interval (s) |
-| --- | --- | --- | --- | ---: | ---: |
-| **Battery** | `battery_soc` | % | State of charge | 1x | 60 |
-|  | `battery_temperature` | °C | Pack temperature | 1x | 60 |
-|  | `battery_capacity` | kWh | Remaining capacity | 1x | 60 |
-|  | `battery_rated_capacity` | kWh | Rated pack capacity | 1x | 60 |
-|  | `battery_available_capacity` | kWh | Estimated energy still available before full charge | 1x | 60 |
-|  | `battery_voltage` | V | Pack voltage | 1x | 60 |
-|  | `battery_current` | A | Pack current (positive = charge) | 1x | 60 |
-| **Energy system (ES)** | `battery_power` | W | Pack power (positive = charge) | 1x | 60 |
-|  | `battery_power_in` / `battery_power_out` | W | Split charge/discharge power | 1x | 60 |
-|  | `battery_state` | text | `charging` / `discharging` / `idle` | 1x | 60 |
-|  | `grid_power` | W | Grid import/export (positive = import) | 1x | 60 |
-|  | `offgrid_power` | W | Off-grid load | 1x | 60 |
-|  | `pv_power_es` | W | Solar production reported via ES | 1x | 60 |
-|  | `total_pv_energy` | kWh | Lifetime PV energy | 1x | 60 |
-|  | `total_grid_import` / `total_grid_export` | kWh | Lifetime grid counters | 1x | 60 |
-|  | `total_load_energy` | kWh | Lifetime load energy | 1x | 60 |
-| **Energy meter / CT** | `ct_phase_a_power`, `ct_phase_b_power`, `ct_phase_c_power` | W | Per-phase measurements (if CTs installed) | 5x | 300 |
-|  | `ct_total_power` | W | CT aggregate | 5x | 300 |
-| **Mode** | `operating_mode` | text | Current mode (read-only sensor) | 5x | 300 |
-| **PV (Venus D only)** | `pv_power`, `pv_voltage`, `pv_current` | W / V / A | MPPT telemetry | 5x | 300 |
-| **Network** | `wifi_rssi` | dBm | Wi-Fi signal | 10x | 600 |
-|  | `wifi_ssid`, `wifi_ip`, `wifi_gateway`, `wifi_subnet`, `wifi_dns` | text | Wi-Fi configuration | 10x | 600 |
-| **Device info** | `device_model`, `firmware_version`, `ble_mac`, `wifi_mac`, `device_ip` | text | Identification fields | 10x | 600 |
-| **Diagnostics** | `last_message_received` | seconds | Time since the last successful poll | 1x | 60 |
+| Category | Sensor (entity suffix) | Unit | Notes | Update tier | Default interval |
+| --- | --- | --- | --- | --- | ---: |
+| **Battery** | `battery_soc` | % | State of charge | Medium | 100 s |
+|  | `battery_temperature` | °C | Pack temperature | Medium | 100 s |
+|  | `battery_capacity` | kWh | Remaining capacity | Medium | 100 s |
+|  | `battery_rated_capacity` | kWh | Rated pack capacity | Medium | 100 s |
+|  | `battery_available_capacity` | kWh | Estimated energy still available before full charge | Medium | 100 s |
+|  | `battery_voltage` | V | Pack voltage | Medium | 100 s |
+|  | `battery_current` | A | Pack current (positive = charge) | Medium | 100 s |
+| **Energy system (ES)** | `battery_power` | W | Pack power (positive = charge) | Fast | 10 s |
+|  | `battery_power_in` / `battery_power_out` | W | Split charge/discharge power | Fast | 10 s |
+|  | `battery_state` | text | `charging` / `discharging` / `idle` | Fast | 10 s |
+|  | `grid_power` | W | Grid import/export (positive = import) | Fast | 10 s |
+|  | `offgrid_power` | W | Off-grid load | Fast | 10 s |
+|  | `pv_power_es` | W | Solar production reported via ES | Fast | 10 s |
+|  | `total_pv_energy` | kWh | Lifetime PV energy | Fast | 10 s |
+|  | `total_grid_import` / `total_grid_export` | kWh | Lifetime grid counters | Fast | 10 s |
+|  | `total_load_energy` | kWh | Lifetime load energy | Fast | 10 s |
+| **Energy meter / CT** | `ct_phase_a_power`, `ct_phase_b_power`, `ct_phase_c_power` | W | Per-phase measurements (if CTs installed) | Fast | 10 s |
+|  | `ct_total_power` | W | CT aggregate | Fast | 10 s |
+| **Mode** | `operating_mode` | text | Current mode (read-only sensor) | Slow | ~17 min |
+| **PV (Venus A / D only)** | `pv_power`, `pv_voltage`, `pv_current` | W / V / A | MPPT telemetry | Medium | 100 s |
+| **Network** | `wifi_rssi` | dBm | Wi-Fi signal | Slow | ~17 min |
+|  | `wifi_ssid`, `wifi_ip`, `wifi_gateway`, `wifi_subnet`, `wifi_dns` | text | Wi-Fi configuration | Slow | ~17 min |
+| **Device info** | `device_model`, `firmware_version`, `ble_mac`, `wifi_mac`, `device_ip` | text | Identification fields | Slow | ~17 min |
+| **Diagnostics** | `last_message_received` | seconds | Time since the last successful poll | Fast | 10 s |
+
+**Update tiers** (with the default 10 s scan interval): **Fast** = every scan (10 s) — `ES.GetStatus`, `EM.GetStatus`; **Medium** = every 10th scan (100 s) — `Bat.GetStatus`, `PV.GetStatus`; **Slow** = every 100th scan (~17 min) — `Marstek.GetDevice`, `Wifi.GetStatus`, `BLE.GetStatus`, `ES.GetMode`. The scan interval and all tiers scale proportionally when you change it in the integration options.
 
 Every sensor listed above also exists in an aggregated form under the **Marstek System** device whenever you manage multiple batteries together (prefixed with `system_`).
 
@@ -257,7 +259,7 @@ automation:
 
 ## 7. Tips & Troubleshooting
 
-- Keep the standard polling interval (60 s) unless you have explicit reasons to slow it down. Faster intervals than 60s can lead to the battery becoming unresponsive.
+- The default scan interval is 10 s. Increasing it reduces UDP traffic but makes entities less reactive. Going below 10 s is not recommended — high-frequency polling can make devices unstable.
 - If discovery fails, double-check that the Local API remains enabled after firmware upgrades and that UDP port `30000` is accessible from Home Assistant.
 - For verbose logging, append the following to `configuration.yaml`:
   ```yaml
@@ -276,7 +278,7 @@ Known issues:
 - API call timeouts (shown as warnings in the log).
 - Some API calls are not supported on older firmware — please ensure devices are updated before filing issues.
 - Manual mode requests must include a schedule: the API rejects `ES.SetMode` without `manual_cfg`, and because schedules are write-only the integration always sends a disabled placeholder in slot 9. Reapply your own slot 9 schedule after toggling Manual mode if needed.
-- Polling faster than 60s is not advised; devices have been reported to become unstable (e.g. losing CT003 connection).
+- Polling faster than 10 s is not advised; devices have been reported to become unstable (e.g. losing CT003 connection).
  - Energy counters / capacity fields may be reported in Wh instead of kWh on certain firmware (values appear 1000× off).
  - `ES.GetStatus` can be unresponsive on some Venus E v3 firmwares (reported on v137 / v139).
  - CT connection state may be reported as "disconnected" / power values might not be updated even when a CT is connected (appears fixed in HW v2 firmware v154+).
