@@ -47,12 +47,18 @@
       },
       "scan_interval": {
         "title": "Update communication timings and thresholds",
-        "description": "Configure how often data is refreshed and communication parameters. \nFast Update Interval is the timing between 2 consecutive updates for entity with high rate. Medium is Fastx10 and Slow is Fastx100. \nCommand timeout is how long to wait for a response before retrying. Max retry attempts is how many times to retry a command before giving up. Stale data threshold is how old data can be before it's considered stale and not updated until fresh data is received.",
+        "description": "Adjust how frequently Home Assistant polls the device and how it handles communication issues.",
         "data": {
           "scan_interval": "Fast Update Interval (seconds)",
           "command_timeout": "Command timeout (seconds)",
           "command_max_attempts": "Max retry attempts",
           "stale_data_threshold": "Stale data threshold (seconds)"
+        },
+        "data_description": {
+          "scan_interval": "Base polling interval. Medium tier = Fast × 10, Slow tier = Fast × 100.",
+          "command_timeout": "How long to wait for a device response before retrying.",
+          "command_max_attempts": "How many times to retry a command before giving up.",
+          "stale_data_threshold": "How old data can be (in seconds) before entities show as unavailable."
         }
       },
       "rename_device": {
