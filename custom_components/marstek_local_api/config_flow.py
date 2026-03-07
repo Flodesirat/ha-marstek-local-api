@@ -413,7 +413,7 @@ class OptionsFlow(config_entries.OptionsFlow):
                     vol.Optional(
                         "scan_interval",
                         default=opts.get("scan_interval", DEFAULT_SCAN_INTERVAL),
-                    ): NumberSelector(NumberSelectorConfig(min=15, max=900, mode=NumberSelectorMode.BOX)),
+                    ): NumberSelector(NumberSelectorConfig(min=10, max=900, mode=NumberSelectorMode.BOX)),
                     vol.Optional(
                         "command_timeout",
                         default=opts.get("command_timeout", COMMAND_TIMEOUT),
