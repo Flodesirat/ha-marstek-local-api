@@ -92,6 +92,41 @@ def _available_until_dod(data: dict) -> float | None:
         return None
 
 
+def _time_to_full(data: dict) -> float | None:
+    """Estimated minutes until battery is full (only when charging)."""
+    battery = data.get("battery", {})
+    rated = battery.get("rated_capacity")
+    current = battery.get("bat_capacity")
+    power = data.get("es", {}).get("bat_power")
+    if rated is None or current is None or power is None or power <= 0:
+        return None
+    try:
+        to_fill = float(rated) - float(current)
+        return max(0.0, to_fill / float(power) * 60)
+    except (TypeError, ValueError, ZeroDivisionError):
+        return None
+
+
+def _time_to_dod(data: dict) -> float | None:
+    """Estimated minutes until battery hits DOD limit (only when discharging)."""
+    battery = data.get("battery", {})
+    rated = battery.get("rated_capacity")
+    current = battery.get("bat_capacity")
+    power = data.get("es", {}).get("bat_power")
+    dod = data.get("_config", {}).get("dod_percent", DOD_DEFAULT)
+    if rated is None or current is None or power is None or power >= 0:
+        return None
+    try:
+        reserved = float(rated) * (1 - dod / 100)
+        available = max(0.0, float(current) - reserved)
+        discharge_power = abs(float(power))
+        if discharge_power == 0:
+            return None
+        return available / discharge_power * 60
+    except (TypeError, ValueError, ZeroDivisionError):
+        return None
+
+
 def _usable_soc(data: dict) -> float | None:
     """Percentage of usable capacity remaining (0–100%).
 
@@ -250,6 +285,26 @@ SENSOR_TYPES: tuple[MarstekSensorEntityDescription, ...] = (
         state_class=SensorStateClass.MEASUREMENT,
         suggested_display_precision=1,
         value_fn=_usable_soc,
+        category="battery",
+    ),
+    MarstekSensorEntityDescription(
+        key="battery_time_to_full",
+        name="Time to full",
+        native_unit_of_measurement=UnitOfTime.MINUTES,
+        device_class=SensorDeviceClass.DURATION,
+        state_class=SensorStateClass.MEASUREMENT,
+        suggested_display_precision=0,
+        value_fn=_time_to_full,
+        category="battery",
+    ),
+    MarstekSensorEntityDescription(
+        key="battery_time_to_dod",
+        name="Time to DOD",
+        native_unit_of_measurement=UnitOfTime.MINUTES,
+        device_class=SensorDeviceClass.DURATION,
+        state_class=SensorStateClass.MEASUREMENT,
+        suggested_display_precision=0,
+        value_fn=_time_to_dod,
         category="battery",
     ),
     MarstekSensorEntityDescription(
@@ -560,6 +615,26 @@ AGGREGATE_SENSOR_TYPES: tuple[MarstekSensorEntityDescription, ...] = (
         state_class=SensorStateClass.MEASUREMENT,
         suggested_display_precision=1,
         value_fn=lambda data: data.get("aggregates", {}).get("usable_soc"),
+        category="aggregates",
+    ),
+    MarstekSensorEntityDescription(
+        key="system_time_to_full",
+        name="Time to full",
+        native_unit_of_measurement=UnitOfTime.MINUTES,
+        device_class=SensorDeviceClass.DURATION,
+        state_class=SensorStateClass.MEASUREMENT,
+        suggested_display_precision=0,
+        value_fn=lambda data: data.get("aggregates", {}).get("total_time_to_full"),
+        category="aggregates",
+    ),
+    MarstekSensorEntityDescription(
+        key="system_time_to_dod",
+        name="Time to DOD",
+        native_unit_of_measurement=UnitOfTime.MINUTES,
+        device_class=SensorDeviceClass.DURATION,
+        state_class=SensorStateClass.MEASUREMENT,
+        suggested_display_precision=0,
+        value_fn=lambda data: data.get("aggregates", {}).get("total_time_to_dod"),
         category="aggregates",
     ),
     MarstekSensorEntityDescription(

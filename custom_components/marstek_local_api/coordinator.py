@@ -186,6 +186,18 @@ class MarstekMultiDeviceCoordinator(DataUpdateCoordinator):
         else:
             aggregates["usable_soc"] = None
 
+        # Time estimates
+        if aggregates["total_power_in"] > 0:
+            to_fill = total_capacity - aggregates["total_remaining_capacity"]
+            aggregates["total_time_to_full"] = max(0.0, to_fill / aggregates["total_power_in"] * 60)
+        else:
+            aggregates["total_time_to_full"] = None
+
+        if aggregates["total_power_out"] > 0:
+            aggregates["total_time_to_dod"] = aggregates["total_available_until_dod"] / aggregates["total_power_out"] * 60
+        else:
+            aggregates["total_time_to_dod"] = None
+
         # Combined state
         power_values = [
             d.get("es", {}).get("bat_power", 0) or 0
