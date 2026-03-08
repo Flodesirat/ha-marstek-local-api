@@ -20,7 +20,13 @@ jobs:
         run: pip install -r requirements-test.txt
 
       - name: Run unit tests
-        run: python -m pytest tests/ -v --tb=short --junit-xml=report-unit.xml
+        run: |
+          python -m pytest tests/ -v --tb=short \
+            --junit-xml=report-unit.xml \
+            --cov=custom_components/marstek_local_api \
+            --cov-report=term-missing \
+            --cov-report=html:coverage-report \
+            --cov-report=xml:coverage.xml
 
       - name: Run integration tests
         run: python -m pytest tests_integration/ -v --tb=short --junit-xml=report-integration.xml
@@ -34,3 +40,11 @@ jobs:
             report-unit.xml
             report-integration.xml
           retention-days: 7
+
+      - name: Upload coverage report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: coverage-report/
+          retention-days: 30

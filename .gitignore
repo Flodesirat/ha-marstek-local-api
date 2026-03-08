@@ -46,3 +46,6 @@ test/logs/
 # CI / test artifacts
 .venv/
 report.xml
+coverage-report/
+coverage.xml
+.coverage

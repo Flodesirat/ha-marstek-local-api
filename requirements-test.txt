@@ -4,3 +4,4 @@ pytest-asyncio
 aiodhcpwatcher
 aiodiscover
 pylint
+pytest-cov
