@@ -46,7 +46,15 @@ _clients_by_port = {}  # Map port -> list of clients
 class MarstekUDPClient:
     """UDP client for Marstek Local API communication."""
 
-    def __init__(self, hass, host: str | None = None, port: int = DEFAULT_PORT, remote_port: int | None = None, command_timeout: int = COMMAND_TIMEOUT, command_max_attempts: int = COMMAND_MAX_ATTEMPTS) -> None:
+    def __init__(
+        self,
+        hass,
+        host: str | None = None,
+        port: int = DEFAULT_PORT,
+        remote_port: int | None = None,
+        command_timeout: int = COMMAND_TIMEOUT,
+        command_max_attempts: int = COMMAND_MAX_ATTEMPTS,
+    ) -> None:
         """Initialize the UDP client.
 
         Args:
@@ -78,7 +86,6 @@ class MarstekUDPClient:
             return
 
         loop = asyncio.get_event_loop()
-        self._loop = loop
 
         _LOGGER.info(
             "Connecting UDP socket: local_port=%s, remote_host=%s, remote_port=%s",
@@ -99,7 +106,7 @@ class MarstekUDPClient:
                 if sys.platform != "win32":
                     endpoint_kwargs["reuse_port"] = True
                 transport, protocol = await loop.create_datagram_endpoint(
-                    lambda: MarstekProtocol(),
+                    MarstekProtocol,
                     **endpoint_kwargs,
                 )
                 _shared_transports[self.port] = transport
@@ -551,8 +558,7 @@ class MarstekUDPClient:
 
         try:
             # Parse ifconfig to get all network interfaces and their IPs
-            result = subprocess.run(['ifconfig'], capture_output=True, text=True, timeout=2)
-            current_ip = None
+            result = subprocess.run(['ifconfig'], capture_output=True, text=True, timeout=2, check=False)
 
             for line in result.stdout.split('\n'):
                 # Parse inet lines
@@ -837,7 +843,6 @@ class MarstekProtocol(asyncio.DatagramProtocol):
         # Get the local port from the transport
         if self.port is None:
             try:
-                sock = None
                 # Try to get port from connection (we'll set it properly below)
                 for port, protocol in _shared_protocols.items():
                     if protocol is self:

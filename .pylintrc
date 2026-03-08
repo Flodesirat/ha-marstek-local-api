@@ -1,0 +1,54 @@
+[MASTER]
+# Only lint the integration source, not tests or venv
+ignore-paths = ^tests/,^tests_integration/,^\.venv/
+
+[MESSAGES CONTROL]
+disable =
+    # False positive: pylint cannot resolve HA dataclass parent fields
+    # (SensorEntityDescription, BinarySensorEntityDescription etc.)
+    unexpected-keyword-arg,
+
+    # Intentional: entity platforms duplicate the available/is_on pattern by design
+    duplicate-code,
+
+    # HA runtime pattern: abstract methods implemented by the HA framework at runtime
+    abstract-method,
+
+    # HA convention: overrides often rename parameters to match domain semantics
+    arguments-renamed,
+
+    # Necessary in async HA code: catch-all for unexpected device/network errors
+    broad-exception-caught,
+
+    # Intentional: inter-module access within the same integration package
+    protected-access,
+
+    # connect() is pseudo-init for the UDP client; _loop is set there by design
+    attribute-defined-outside-init,
+
+    # Interface contracts: unused args are part of HA callback signatures
+    unused-argument,
+
+    # Lazy imports inside functions are intentional (sys for Windows check,
+    # struct/subprocess for network interface parsing)
+    import-outside-toplevel,
+
+[FORMAT]
+# HA ecosystem standard (black default is 88, but integrations use 120)
+max-line-length = 120
+
+[DESIGN]
+# Coordinators and config flows legitimately require many parameters/attributes
+max-args = 14
+max-positional-arguments = 14
+max-locals = 25
+max-statements = 160
+max-branches = 50
+max-returns = 8
+max-attributes = 25
+max-bool-expr = 10
+max-nested-blocks = 7
+
+[BASIC]
+# Allow UPPER_CASE for module-level and class-level constants
+const-rgx = (([A-Z_][A-Z0-9_]*)|(__.*__)|([a-z_][a-z0-9_]*))$

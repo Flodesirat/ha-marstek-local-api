@@ -68,7 +68,8 @@ SERVICE_SET_MANUAL_SCHEDULES_SCHEMA = vol.Schema(
                     vol.Optional("days", default=list(WEEKDAY_MAP.keys())): vol.All(
                         cv.ensure_list, [vol.In(WEEKDAY_MAP.keys())]
                     ),
-                    vol.Optional("power", default=0): vol.Coerce(int),  # Negative=charge, positive=discharge, 0=no limit
+                    # Negative=charge, positive=discharge, 0=no limit
+                    vol.Optional("power", default=0): vol.Coerce(int),
                     vol.Optional("enabled", default=True): cv.boolean,
                 }
             )

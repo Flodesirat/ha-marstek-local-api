@@ -272,7 +272,7 @@ class CompatibilityMatrix:
             return value
 
         # Get the entry with the highest firmware version
-        selected_fw_ver, divisor = max(applicable_entries, key=lambda x: x[0])
+        _, divisor = max(applicable_entries, key=lambda x: x[0])
         scaled = value / divisor
 
         return scaled

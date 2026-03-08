@@ -18,7 +18,17 @@ from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers.selector import NumberSelector, NumberSelectorConfig, NumberSelectorMode
 
 from .api import MarstekAPIError, MarstekUDPClient
-from .const import COMMAND_MAX_ATTEMPTS, COMMAND_TIMEOUT, CONF_PORT, DATA_COORDINATOR, DEFAULT_PORT, DEFAULT_SCAN_INTERVAL, DOD_DEFAULT, DOMAIN, STALE_DATA_THRESHOLD
+from .const import (
+    COMMAND_MAX_ATTEMPTS,
+    COMMAND_TIMEOUT,
+    CONF_PORT,
+    DATA_COORDINATOR,
+    DEFAULT_PORT,
+    DEFAULT_SCAN_INTERVAL,
+    DOD_DEFAULT,
+    DOMAIN,
+    STALE_DATA_THRESHOLD,
+)
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -30,11 +40,10 @@ STEP_USER_DATA_SCHEMA = vol.Schema(
 )
 
 
-async def validate_input(hass: HomeAssistant, data: dict[str, Any], use_ephemeral_port: bool = False) -> dict[str, Any]:
+async def validate_input(hass: HomeAssistant, data: dict[str, Any]) -> dict[str, Any]:
     """Validate the user input allows us to connect.
 
     Data has the keys from STEP_USER_DATA_SCHEMA with values provided by the user.
-    use_ephemeral_port: Deprecated parameter, kept for compatibility
     """
     # Always bind to device port (reuse_port allows multiple instances)
     target_port = data.get(CONF_PORT, DEFAULT_PORT)
@@ -51,7 +60,10 @@ async def validate_input(hass: HomeAssistant, data: dict[str, Any], use_ephemera
 
         # Return info that you want to store in the config entry.
         return {
-            "title": f"{device_info.get('device', 'Marstek Device')} ({device_info.get('ble_mac', device_info.get('wifi_mac', 'Unknown'))})",
+            "title": (
+                f"{device_info.get('device', 'Marstek Device')}"
+                f" ({device_info.get('ble_mac', device_info.get('wifi_mac', 'Unknown'))})"
+            ),
             "device": device_info.get("device"),
             "firmware": device_info.get("ver"),
             "wifi_mac": device_info.get("wifi_mac"),
@@ -109,7 +121,6 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                             paused_clients.append(coordinator.api)
 
             # Wait a bit for disconnections to complete and sockets to close
-            import asyncio
             await asyncio.sleep(1)
 
             # Bind to same port as device (required by Marstek protocol)
@@ -255,7 +266,10 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 # Check if already configured
                 unique_id = info.get("ble_mac")
                 if not unique_id:
-                    _LOGGER.debug("Manual setup for host %s missing BLE MAC; skipping duplicate guard", user_input.get(CONF_HOST))
+                    _LOGGER.debug(
+                        "Manual setup for host %s missing BLE MAC; skipping duplicate guard",
+                        user_input.get(CONF_HOST),
+                    )
                 else:
                     await self.async_set_unique_id(unique_id)
                     self._abort_if_unique_id_configured()
@@ -290,14 +304,12 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         """Handle DHCP discovery."""
         # Extract info from DHCP discovery
         host = discovery_info.ip
-        mac = discovery_info.macaddress
 
         # Validate the device using ephemeral port to avoid conflicts
         try:
             info = await validate_input(
                 self.hass,
                 {CONF_HOST: host, CONF_PORT: DEFAULT_PORT},
-                use_ephemeral_port=True
             )
 
             # Check if already configured

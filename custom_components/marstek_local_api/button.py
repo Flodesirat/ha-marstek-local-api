@@ -197,12 +197,12 @@ class MarstekModeButton(CoordinatorEntity, ButtonEntity):
                 "mode": MODE_AUTO,
                 "auto_cfg": {"enable": 1},
             }
-        elif self._mode == MODE_AI:
+        if self._mode == MODE_AI:
             return {
                 "mode": MODE_AI,
                 "ai_cfg": {"enable": 1},
             }
-        elif self._mode == MODE_MANUAL:
+        if self._mode == MODE_MANUAL:
             return {
                 "mode": MODE_MANUAL,
                 "manual_cfg": dict(DEFAULT_MANUAL_MODE_CFG),
@@ -385,12 +385,12 @@ class MarstekMultiDeviceModeButton(CoordinatorEntity, ButtonEntity):
                 "mode": MODE_AUTO,
                 "auto_cfg": {"enable": 1},
             }
-        elif self._mode == MODE_AI:
+        if self._mode == MODE_AI:
             return {
                 "mode": MODE_AI,
                 "ai_cfg": {"enable": 1},
             }
-        elif self._mode == MODE_MANUAL:
+        if self._mode == MODE_MANUAL:
             return {
                 "mode": MODE_MANUAL,
                 "manual_cfg": dict(DEFAULT_MANUAL_MODE_CFG),

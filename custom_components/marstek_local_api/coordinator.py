@@ -22,7 +22,6 @@ from .const import (
     DEVICE_MODEL_VENUS_D,
     DOD_DEFAULT,
     STALE_DATA_THRESHOLD,
-    UPDATE_INTERVAL_FAST,
     UPDATE_INTERVAL_MEDIUM,
     UPDATE_INTERVAL_SLOW,
     METHOD_BATTERY_STATUS,
@@ -120,7 +119,7 @@ class MarstekMultiDeviceCoordinator(DataUpdateCoordinator):
 
         # Collect data from all devices
         all_device_data = []
-        for mac, coordinator in self.device_coordinators.items():
+        for _, coordinator in self.device_coordinators.items():
             if coordinator.data:
                 all_device_data.append(coordinator.data)
 
@@ -194,7 +193,9 @@ class MarstekMultiDeviceCoordinator(DataUpdateCoordinator):
             aggregates["total_time_to_full"] = None
 
         if aggregates["total_power_out"] > 0:
-            aggregates["total_time_to_dod"] = aggregates["total_available_until_dod"] / aggregates["total_power_out"] * 60
+            aggregates["total_time_to_dod"] = (
+                aggregates["total_available_until_dod"] / aggregates["total_power_out"] * 60
+            )
         else:
             aggregates["total_time_to_dod"] = None
 
@@ -329,8 +330,8 @@ class MarstekDataUpdateCoordinator(DataUpdateCoordinator):
 
         # Staleness tracking - track last successful update per category
         self.category_last_updated: dict[str, float] = {}
-        self.STALENESS_THRESHOLD = 10  # missed updates before invalidation
-        self.STATIC_CATEGORIES = {"device", "wifi", "ble", "mode", "_diagnostic", "aggregates"}
+        self.staleness_threshold = 10  # missed updates before invalidation
+        self.static_categories = {"device", "wifi", "ble", "mode", "_diagnostic", "aggregates"}
 
         # Initialize compatibility matrix for version-specific scaling
         self.compatibility = CompatibilityMatrix(
@@ -435,7 +436,7 @@ class MarstekDataUpdateCoordinator(DataUpdateCoordinator):
             True if data is fresh, False if stale or never received
         """
         # Static categories never go stale
-        if category in self.STATIC_CATEGORIES:
+        if category in self.static_categories:
             return True
 
         # Check if we ever received data for this category
@@ -487,7 +488,8 @@ class MarstekDataUpdateCoordinator(DataUpdateCoordinator):
 
             # Check if this is truly the first update (never been run before)
             is_first_update = self.data is None
-            _LOGGER.debug("Update starting - is_first_update=%s, self.data=%s", is_first_update, "None" if self.data is None else f"dict with {len(self.data)} keys")
+            data_summary = "None" if self.data is None else f"dict with {len(self.data)} keys"
+            _LOGGER.debug("Update starting - is_first_update=%s, self.data=%s", is_first_update, data_summary)
 
             # Start with previous data to preserve values on partial failures
             data = dict(self.data) if self.data else {}
@@ -600,7 +602,7 @@ class MarstekDataUpdateCoordinator(DataUpdateCoordinator):
                     had_success = True
 
                 # Only query PV for Venus D and Venus A
-                if (self.device_model == DEVICE_MODEL_VENUS_D) or (self.device_model == DEVICE_MODEL_VENUS_A):
+                if self.device_model in (DEVICE_MODEL_VENUS_D, DEVICE_MODEL_VENUS_A):
                     try:
                         await asyncio.sleep(_command_delay())  # Delay between API calls
                         pv_status = await self.api.get_pv_status(**_command_kwargs())
