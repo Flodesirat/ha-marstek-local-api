@@ -119,10 +119,8 @@ def _time_to_dod(data: dict) -> float | None:
         reserved = float(rated) * (1 - dod / 100)
         available = max(0.0, float(current) - reserved)
         discharge_power = abs(float(power))
-        if discharge_power == 0:
-            return None
         return available / discharge_power * 60
-    except (TypeError, ValueError, ZeroDivisionError):
+    except (TypeError, ValueError):
         return None
 
 
