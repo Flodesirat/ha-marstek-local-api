@@ -3,3 +3,4 @@ pytest-homeassistant-custom-component
 pytest-asyncio
 aiodhcpwatcher
 aiodiscover
+pylint
