@@ -127,7 +127,13 @@ def _install_ha_stubs() -> None:
         "homeassistant.helpers.entity_platform": _make_module(
             "helpers.entity_platform", AddEntitiesCallback=object
         ),
-        "homeassistant.helpers.config_validation": _make_module("helpers.config_validation"),
+        "homeassistant.helpers.config_validation": _make_module(
+            "helpers.config_validation",
+            string=lambda x: x,
+            time=lambda x: x,
+            boolean=lambda x: x,
+            ensure_list=lambda x: x if isinstance(x, list) else [x],
+        ),
         "homeassistant.helpers.device_registry": _make_module("helpers.device_registry"),
         "homeassistant.config_entries": _make_module("config_entries", ConfigEntry=object),
         "homeassistant.exceptions": _make_module("exceptions", HomeAssistantError=Exception),
