@@ -432,9 +432,7 @@ class MarstekUDPClient:
         """Compute exponential backoff with jitter for retries."""
         base_delay = COMMAND_BACKOFF_BASE * (COMMAND_BACKOFF_FACTOR ** (attempt - 1))
         capped = min(base_delay, COMMAND_BACKOFF_MAX)
-        if COMMAND_BACKOFF_JITTER > 0:
-            return capped + random.uniform(0, COMMAND_BACKOFF_JITTER)
-        return capped
+        return capped + random.uniform(0, COMMAND_BACKOFF_JITTER)
 
     def _record_command_result(
         self,
