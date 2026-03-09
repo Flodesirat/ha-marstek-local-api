@@ -561,16 +561,13 @@ class OptionsFlow(config_entries.OptionsFlow):
                     for idx, device in enumerate(self._devices)
                     if idx != device_index
                 ]
-                if not updated_devices:
-                    errors["base"] = "cannot_remove_last_device"
-                else:
-                    new_data = {**self.config_entry.data, "devices": updated_devices}
-                    self.hass.config_entries.async_update_entry(
-                        self.config_entry,
-                        data=new_data,
-                    )
-                    self._devices = updated_devices
-                    return self.async_create_entry(title="", data={})
+                new_data = {**self.config_entry.data, "devices": updated_devices}
+                self.hass.config_entries.async_update_entry(
+                    self.config_entry,
+                    data=new_data,
+                )
+                self._devices = updated_devices
+                return self.async_create_entry(title="", data={})
 
         return self.async_show_form(
             step_id="remove_device",

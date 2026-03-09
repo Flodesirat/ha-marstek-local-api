@@ -111,6 +111,23 @@ class _BinarySensorEntity:
     """Stub binary sensor entity base."""
 
 
+class _ConfigFlowBase:
+    """Stub base class for config flows — accepts domain= class keyword."""
+    def __init_subclass__(cls, domain=None, **kwargs):
+        super().__init_subclass__(**kwargs)
+
+
+class _OptionsFlowBase:
+    """Stub base class for options flows."""
+
+
+class _DhcpServiceInfo:
+    def __init__(self, ip: str, hostname: str = "", macaddress: str = ""):
+        self.ip = ip
+        self.hostname = hostname
+        self.macaddress = macaddress
+
+
 def _install_ha_stubs() -> None:
     """Register minimal HA stubs so integration modules can be imported."""
     stubs = {
@@ -135,9 +152,22 @@ def _install_ha_stubs() -> None:
             ensure_list=lambda x: x if isinstance(x, list) else [x],
         ),
         "homeassistant.helpers.device_registry": _make_module("helpers.device_registry"),
-        "homeassistant.config_entries": _make_module("config_entries", ConfigEntry=object),
+        "homeassistant.helpers.selector": _make_module(
+            "helpers.selector",
+            NumberSelector=lambda *a, **kw: None,
+            NumberSelectorConfig=lambda *a, **kw: None,
+            NumberSelectorMode=type("NumberSelectorMode", (), {"BOX": "box"})(),
+        ),
+        "homeassistant.config_entries": _make_module(
+            "config_entries",
+            ConfigEntry=object,
+            ConfigFlow=_ConfigFlowBase,
+            OptionsFlow=_OptionsFlowBase,
+        ),
+        "homeassistant.data_entry_flow": _make_module("data_entry_flow", FlowResult=dict),
         "homeassistant.exceptions": _make_module("exceptions", HomeAssistantError=Exception),
         "homeassistant.components": type(sys)("homeassistant.components"),
+        "homeassistant.components.dhcp": _make_module("components.dhcp", DhcpServiceInfo=_DhcpServiceInfo),
         "homeassistant.components.sensor": _make_module(
             "components.sensor",
             SensorDeviceClass=_SensorDeviceClass,
@@ -165,8 +195,12 @@ def _install_ha_stubs() -> None:
         ),
         "voluptuous": _make_module("voluptuous", Schema=lambda *a, **kw: None, Required=lambda x: x, Optional=lambda x, **kw: x, All=lambda *a: a[0], Coerce=lambda t: t, Range=lambda **kw: None, In=lambda x: None),
     }
+    # Modules that must always be replaced — the real HA versions have property
+    # machinery (deprecation guards, metaclasses) that break unit tests.
+    ALWAYS_REPLACE = {"homeassistant.config_entries"}
+
     for name, mod in stubs.items():
-        if name not in sys.modules:
+        if name not in sys.modules or name in ALWAYS_REPLACE:
             sys.modules[name] = mod
 
 
