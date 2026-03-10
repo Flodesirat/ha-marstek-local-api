@@ -236,6 +236,56 @@ class TestAggregatesTwoDevicesPartlyCharging:
 
 
 # ---------------------------------------------------------------------------
+# Two devices — partly discharging (one idle, one discharging)
+# ---------------------------------------------------------------------------
+
+class TestAggregatesTwoDevicesPartlyDischarging:
+    @pytest.fixture
+    def coordinator(self, venus_a_coordinator_data):
+        dev1 = {**venus_a_coordinator_data, "es": {"bat_power": -500}}
+        dev2 = {**venus_a_coordinator_data, "es": {"bat_power": 0}}
+        return _make_multi_coordinator([dev1, dev2])
+
+    def test_combined_state_partly_discharging(self, coordinator):
+        assert coordinator._calculate_aggregates()["combined_state"] == "partly_discharging"
+
+    def test_total_battery_power(self, coordinator):
+        assert coordinator._calculate_aggregates()["total_battery_power"] == -500
+
+
+# ---------------------------------------------------------------------------
+# Zero total capacity — average_soc and available_capacity are None
+# ---------------------------------------------------------------------------
+
+class TestAggregatesZeroCapacity:
+    @pytest.fixture
+    def coordinator(self):
+        # Device with rated_capacity=0 → total_capacity==0
+        return _make_multi_coordinator([{"battery": {"rated_capacity": 0, "soc": 50, "bat_capacity": 0}}])
+
+    def test_average_soc_none(self, coordinator):
+        assert coordinator._calculate_aggregates()["average_soc"] is None
+
+    def test_available_capacity_none(self, coordinator):
+        assert coordinator._calculate_aggregates()["total_available_capacity"] is None
+
+    def test_usable_soc_none(self, coordinator):
+        assert coordinator._calculate_aggregates()["usable_soc"] is None
+
+
+# ---------------------------------------------------------------------------
+# dod_percent == 0 → usable_soc is None
+# ---------------------------------------------------------------------------
+
+class TestAggregatesDodZero:
+    def test_usable_soc_none_when_dod_zero(self, venus_a_coordinator_data):
+        coordinator = _make_multi_coordinator([venus_a_coordinator_data])
+        coordinator.dod_percent = 0
+        agg = coordinator._calculate_aggregates()
+        assert agg["usable_soc"] is None
+
+
+# ---------------------------------------------------------------------------
 # Empty coordinator
 # ---------------------------------------------------------------------------
 

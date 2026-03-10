@@ -223,8 +223,6 @@ class MarstekMultiDeviceCoordinator(DataUpdateCoordinator):
             aggregates["combined_state"] = "partly_charging"
         elif has_discharging:
             aggregates["combined_state"] = "partly_discharging"
-        else:
-            aggregates["combined_state"] = "idle"
 
         # Energy aggregates
         aggregates["total_pv_energy"] = sum(

@@ -95,7 +95,11 @@ class _UnitOfTime:
 
 class _DataUpdateCoordinator:
     """Stub base class for coordinators."""
-    def __init__(self, *a, **kw): pass
+    def __init__(self, *a, **kw):
+        if a:
+            self.hass = a[0]
+        self.update_interval = kw.get("update_interval")
+        self.data = None
 
 
 class _CoordinatorEntity:
