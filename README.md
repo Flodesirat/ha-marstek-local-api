@@ -67,32 +67,32 @@ After setup you can return to **Settings → Devices & Services → Marstek Loca
 
 | Category | Sensor (entity suffix) | Unit | Notes | Update tier | Default interval |
 | --- | --- | --- | --- | --- | ---: |
-| **Battery** | `battery_soc` | % | State of charge | Medium | 100 s |
-|  | `battery_temperature` | °C | Pack temperature | Medium | 100 s |
-|  | `battery_capacity` | kWh | Remaining capacity | Medium | 100 s |
-|  | `battery_rated_capacity` | kWh | Rated pack capacity | Medium | 100 s |
-|  | `battery_available_capacity` | kWh | Estimated energy still available before full charge | Medium | 100 s |
-|  | `battery_voltage` | V | Pack voltage | Medium | 100 s |
-|  | `battery_current` | A | Pack current (positive = charge) | Medium | 100 s |
-| **Energy system (ES)** | `battery_power` | W | Pack power (positive = charge) | Fast | 10 s |
-|  | `battery_power_in` / `battery_power_out` | W | Split charge/discharge power | Fast | 10 s |
-|  | `battery_state` | text | `charging` / `discharging` / `idle` | Fast | 10 s |
-|  | `grid_power` | W | Grid import/export (positive = import) | Fast | 10 s |
-|  | `offgrid_power` | W | Off-grid load | Fast | 10 s |
-|  | `pv_power_es` | W | Solar production reported via ES | Fast | 10 s |
-|  | `total_pv_energy` | kWh | Lifetime PV energy | Fast | 10 s |
-|  | `total_grid_import` / `total_grid_export` | kWh | Lifetime grid counters | Fast | 10 s |
-|  | `total_load_energy` | kWh | Lifetime load energy | Fast | 10 s |
-| **Energy meter / CT** | `ct_phase_a_power`, `ct_phase_b_power`, `ct_phase_c_power` | W | Per-phase measurements (if CTs installed) | Fast | 10 s |
-|  | `ct_total_power` | W | CT aggregate | Fast | 10 s |
-| **Mode** | `operating_mode` | text | Current mode (read-only sensor) | Slow | ~17 min |
-| **PV (Venus A / D only)** | `pv_power`, `pv_voltage`, `pv_current` | W / V / A | MPPT telemetry | Medium | 100 s |
-| **Network** | `wifi_rssi` | dBm | Wi-Fi signal | Slow | ~17 min |
-|  | `wifi_ssid`, `wifi_ip`, `wifi_gateway`, `wifi_subnet`, `wifi_dns` | text | Wi-Fi configuration | Slow | ~17 min |
-| **Device info** | `device_model`, `firmware_version`, `ble_mac`, `wifi_mac`, `device_ip` | text | Identification fields | Slow | ~17 min |
-| **Diagnostics** | `last_message_received` | seconds | Time since the last successful poll | Fast | 10 s |
+| **Battery** | `battery_soc` | % | State of charge | Medium | 5 min |
+|  | `battery_temperature` | °C | Pack temperature | Medium | 5 min |
+|  | `battery_capacity` | kWh | Remaining capacity | Medium | 5 min |
+|  | `battery_rated_capacity` | kWh | Rated pack capacity | Medium | 5 min |
+|  | `battery_available_capacity` | kWh | Estimated energy still available before full charge | Medium | 5 min |
+|  | `battery_voltage` | V | Pack voltage | Medium | 5 min |
+|  | `battery_current` | A | Pack current (positive = charge) | Medium | 5 min |
+| **Energy system (ES)** | `battery_power` | W | Pack power (positive = charge) | Fast | 30 s |
+|  | `battery_power_in` / `battery_power_out` | W | Split charge/discharge power | Fast | 30 s |
+|  | `battery_state` | text | `charging` / `discharging` / `idle` | Fast | 30 s |
+|  | `grid_power` | W | Grid import/export (positive = import) | Fast | 30 s |
+|  | `offgrid_power` | W | Off-grid load | Fast | 30 s |
+|  | `pv_power_es` | W | Solar production reported via ES | Fast | 30 s |
+|  | `total_pv_energy` | kWh | Lifetime PV energy | Fast | 30 s |
+|  | `total_grid_import` / `total_grid_export` | kWh | Lifetime grid counters | Fast | 30 s |
+|  | `total_load_energy` | kWh | Lifetime load energy | Fast | 30 s |
+| **Energy meter / CT** | `ct_phase_a_power`, `ct_phase_b_power`, `ct_phase_c_power` | W | Per-phase measurements (if CTs installed) | Fast | 30 s |
+|  | `ct_total_power` | W | CT aggregate | Fast | 30 s |
+| **Mode** | `operating_mode` | text | Current mode (read-only sensor) | Slow | ~50 min |
+| **PV (Venus A / D only)** | `pv_power`, `pv_voltage`, `pv_current` | W / V / A | MPPT telemetry | Medium | 5 min |
+| **Network** | `wifi_rssi` | dBm | Wi-Fi signal | Slow | ~50 min |
+|  | `wifi_ssid`, `wifi_ip`, `wifi_gateway`, `wifi_subnet`, `wifi_dns` | text | Wi-Fi configuration | Slow | ~50 min |
+| **Device info** | `device_model`, `firmware_version`, `ble_mac`, `wifi_mac`, `device_ip` | text | Identification fields | Slow | ~50 min |
+| **Diagnostics** | `last_message_received` | seconds | Time since the last successful poll | Fast | 30 s |
 
-**Update tiers** (with the default 10 s scan interval): **Fast** = every scan (10 s) — `ES.GetStatus`, `EM.GetStatus`; **Medium** = every 10th scan (100 s) — `Bat.GetStatus`, `PV.GetStatus`; **Slow** = every 100th scan (~17 min) — `Marstek.GetDevice`, `Wifi.GetStatus`, `BLE.GetStatus`, `ES.GetMode`. The scan interval and all tiers scale proportionally when you change it in the integration options.
+**Update tiers** (with the default 30 s scan interval): **Fast** = every scan (30 s) — `ES.GetStatus`, `EM.GetStatus`; **Medium** = every 10th scan (5 min) — `Bat.GetStatus`, `PV.GetStatus`; **Slow** = every 100th scan (~50 min) — `Marstek.GetDevice`, `Wifi.GetStatus`, `BLE.GetStatus`, `ES.GetMode`. The scan interval and all tiers scale proportionally when you change it in the integration options.
 
 Every sensor listed above also exists in an aggregated form under the **Marstek System** device whenever you manage multiple batteries together (prefixed with `system_`).
 
@@ -391,7 +391,7 @@ Live output example:
 
 Use `Ctrl+C` at any time to stop and display the final summary. The `--out` JSON report includes all individual latency samples for offline analysis.
 
-> **Typical findings:** `ES.GetStatus` tends to have the highest loss rate on older firmware. If loss > 5% at the default 10s interval, try increasing `--interval` to 15–20s and check the device's WiFi signal (`wifi_rssi` sensor). Loss > 20% consistently suggests a firmware or hardware issue worth reporting to Marstek.
+> **Typical findings:** `ES.GetStatus` tends to have the highest loss rate on older firmware. If loss > 5% at the default 30 s interval, try increasing `--interval` to 40–60 s and check the device's WiFi signal (`wifi_rssi` sensor). Loss > 20% consistently suggests a firmware or hardware issue worth reporting to Marstek.
 
 ---
 

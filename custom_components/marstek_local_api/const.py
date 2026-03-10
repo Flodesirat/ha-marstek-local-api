@@ -8,14 +8,14 @@ CONF_PORT: Final = "port"
 
 # Default values
 DEFAULT_PORT: Final = 30000
-DEFAULT_SCAN_INTERVAL: Final = 10  # Base interval in seconds
+DEFAULT_SCAN_INTERVAL: Final = 30  # Base interval in seconds
 DISCOVERY_TIMEOUT: Final = 9  # Discovery window in seconds
 DISCOVERY_BROADCAST_INTERVAL: Final = 2  # Broadcast every 2 seconds during discovery
 
 # Update intervals (in multiples of base interval)
-UPDATE_INTERVAL_FAST: Final = 1  # ES, Battery status (10s)
-UPDATE_INTERVAL_MEDIUM: Final = 10  # EM, PV, Mode (100s)
-UPDATE_INTERVAL_SLOW: Final = 100  # Device, WiFi, BLE (1000s)
+UPDATE_INTERVAL_FAST: Final = 1  # ES, EM status — every scan (default 30 s)
+UPDATE_INTERVAL_MEDIUM: Final = 10  # Bat, PV — every 10th scan (default 5 min)
+UPDATE_INTERVAL_SLOW: Final = 100  # Device, WiFi, BLE, Mode — every 100th scan (default ~50 min)
 
 # Communication timeouts
 COMMAND_TIMEOUT: Final = 2  # Timeout for commands in seconds
