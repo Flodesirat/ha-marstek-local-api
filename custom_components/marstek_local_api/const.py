@@ -28,6 +28,7 @@ COMMAND_BACKOFF_MAX: Final = 12.0  # Upper bound on backoff delay
 COMMAND_BACKOFF_JITTER: Final = 0.4  # Additional random jitter for backoff
 STALE_DATA_THRESHOLD: Final = 300  # Seconds before data is considered stale (5 minutes)
 DOD_DEFAULT: Final = 80  # Depth of Discharge percentage (80% = use 80% of capacity, stop at 20% SOC)
+DIAGNOSTIC_MAX_FRAMES: Final = 50  # Number of recent raw frames to keep per device
 
 # API Methods
 METHOD_GET_DEVICE: Final = "Marstek.GetDevice"

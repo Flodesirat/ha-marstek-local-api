@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import asyncio
+from collections import deque
 import json
 import logging
 import random
@@ -19,6 +20,7 @@ from .const import (
     COMMAND_MAX_ATTEMPTS,
     COMMAND_TIMEOUT,
     DEFAULT_PORT,
+    DIAGNOSTIC_MAX_FRAMES,
     DISCOVERY_BROADCAST_INTERVAL,
     DISCOVERY_TIMEOUT,
     ERROR_METHOD_NOT_FOUND,
@@ -78,6 +80,7 @@ class MarstekUDPClient:
         self._stale_message_counter = 0
         self._command_stats: dict[str, dict[str, Any]] = {}
         self._msg_id_counter = 0  # Counter for integer message IDs
+        self._recent_frames: deque = deque(maxlen=DIAGNOSTIC_MAX_FRAMES)
 
     async def connect(self) -> None:
         """Connect to the UDP socket."""
@@ -200,6 +203,11 @@ class MarstekUDPClient:
         """
         try:
             message = json.loads(data.decode())
+            self._recent_frames.append({
+                "ts": time.time(),
+                "src": f"{addr[0]}:{addr[1]}",
+                "frame": message,
+            })
             _LOGGER.debug(
                 "Received UDP message from %s:%s (size=%d bytes): %s",
                 addr[0], addr[1], len(data), message
@@ -528,6 +536,10 @@ class MarstekUDPClient:
                     "supported": None,
                 }
         return all_stats
+
+    def get_recent_frames(self) -> list[dict]:
+        """Return a snapshot of the most recent raw frames received from the device."""
+        return list(self._recent_frames)
 
     async def broadcast(self, message: str) -> None:
         """Broadcast a message."""

@@ -76,6 +76,11 @@ def _coordinator_snapshot(coordinator: MarstekDataUpdateCoordinator) -> dict[str
         # Command compatibility matrix
         "command_compatibility": command_stats,
         "compatibility_summary": compatibility_summary,
+
+        # Raw frames — the last DIAGNOSTIC_MAX_FRAMES messages received from the device,
+        # including timestamps and source address.  Use this to verify whether unexpected
+        # values come from the device itself or from an integration bug.
+        "recent_raw_frames": coordinator.api.get_recent_frames(),
     }
 
     return async_redact_data(snapshot, TO_REDACT)
