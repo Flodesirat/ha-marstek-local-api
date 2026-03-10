@@ -64,18 +64,22 @@ def parse_hardware_version(device_model: str) -> str:
 
 
 def get_base_model(device_model: str) -> str:
-    """Get base model name without hardware version suffix.
+    """Get base model name without hardware version suffix, normalized.
 
     Examples:
         "VenusE 3.0" -> "VenusE"
         "VenusE" -> "VenusE"
         "VenusD" -> "VenusD"
+        "Venus A" -> "VenusA"   (device may report name with space)
+        "Venus D" -> "VenusD"
     """
     if not device_model:
         return ""
 
-    # Remove version suffix
-    return re.sub(r'\s+\d+\.\d+.*$', '', device_model)
+    # Remove version suffix (e.g. " 3.0")
+    base = re.sub(r'\s+\d+\.\d+.*$', '', device_model)
+    # Normalize internal spaces (device may report "Venus A" instead of "VenusA")
+    return base.replace(" ", "")
 
 
 class CompatibilityMatrix:

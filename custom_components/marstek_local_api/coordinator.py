@@ -600,7 +600,8 @@ class MarstekDataUpdateCoordinator(DataUpdateCoordinator):
                     had_success = True
 
                 # Only query PV for Venus D and Venus A
-                if self.device_model in (DEVICE_MODEL_VENUS_D, DEVICE_MODEL_VENUS_A):
+                # Use normalized base_model to handle devices reporting "Venus A" (with space)
+                if self.compatibility.base_model in (DEVICE_MODEL_VENUS_D, DEVICE_MODEL_VENUS_A):
                     try:
                         await asyncio.sleep(_command_delay())  # Delay between API calls
                         pv_status = await self.api.get_pv_status(**_command_kwargs())

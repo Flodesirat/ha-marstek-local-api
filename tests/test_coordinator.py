@@ -62,7 +62,6 @@ def _make_coord(**overrides):
     coord.update_interval = timedelta(seconds=10)
     coord.device_model = DEVICE_MODEL_VENUS_A
     coord.firmware_version = 147
-    coord.compatibility = CompatibilityMatrix(device_model=DEVICE_MODEL_VENUS_A, firmware_version=147)
     coord.category_last_updated = {}
     coord.last_message_timestamp = None
     coord._last_update_start = None
@@ -76,6 +75,11 @@ def _make_coord(**overrides):
     coord.poll_jitter = 0.0
     for k, v in overrides.items():
         setattr(coord, k, v)
+    # Build compatibility after overrides so device_model/firmware_version are correct
+    if "compatibility" not in overrides:
+        coord.compatibility = CompatibilityMatrix(
+            device_model=coord.device_model, firmware_version=coord.firmware_version
+        )
     return coord
 
 
@@ -590,6 +594,14 @@ class TestAsyncUpdateData:
         coord.api.get_battery_status = AsyncMock(return_value={"soc": 70})
         await coord._async_update_data()
         coord.api.get_pv_status.assert_not_called()
+
+    async def test_pv_queried_for_venus_a_with_space(self):
+        """Device reporting 'Venus A' (with space) should still query PV."""
+        coord = _make_coord(data={"old": "data"}, update_count=10, device_model="Venus A")
+        coord.api.get_battery_status = AsyncMock(return_value={"soc": 70})
+        coord.api.get_pv_status = AsyncMock(return_value={"pv_power": 500})
+        await coord._async_update_data()
+        coord.api.get_pv_status.assert_called_once()
 
     async def test_slow_tier_device_info_exception(self):
         coord = _make_coord(data={"old": "data"}, update_count=100)

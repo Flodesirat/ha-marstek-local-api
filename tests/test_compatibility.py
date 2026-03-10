@@ -196,3 +196,19 @@ class TestCompatibilityMatrixHardwareVersionParsing:
     def test_model_without_version_defaults_to_hw2(self):
         m = CompatibilityMatrix(device_model="VenusD", firmware_version=200)
         assert m.hardware_version == "2.0"
+
+    def test_venus_a_with_space_normalized(self):
+        """Device reporting 'Venus A' (with space) should normalize to 'VenusA'."""
+        m = CompatibilityMatrix(device_model="Venus A", firmware_version=147)
+        assert m.base_model == "VenusA"
+        assert m.hardware_version == "2.0"
+
+    def test_venus_a_with_space_pv_power_scaled(self):
+        """'Venus A' should apply the same pv_power scaling as 'VenusA' (÷10)."""
+        m = CompatibilityMatrix(device_model="Venus A", firmware_version=147)
+        assert m.scale_value(1500, "pv_power") == pytest.approx(150.0)
+
+    def test_venus_a_with_space_bat_power_identity(self):
+        """'Venus A' bat_power scaling should work correctly (÷1.0)."""
+        m = CompatibilityMatrix(device_model="Venus A", firmware_version=147)
+        assert m.scale_value(800, "bat_power") == pytest.approx(800.0)
