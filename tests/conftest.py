@@ -111,6 +111,10 @@ class _BinarySensorEntity:
     """Stub binary sensor entity base."""
 
 
+class _ButtonEntity:
+    """Stub button entity base."""
+
+
 class _ConfigFlowBase:
     """Stub base class for config flows — accepts domain= class keyword."""
     def __init_subclass__(cls, domain=None, **kwargs):
@@ -174,6 +178,10 @@ def _install_ha_stubs() -> None:
             SensorEntity=_SensorEntity,
             SensorEntityDescription=_SensorEntityDescription,
             SensorStateClass=_SensorStateClass,
+        ),
+        "homeassistant.components.button": _make_module(
+            "components.button",
+            ButtonEntity=_ButtonEntity,
         ),
         "homeassistant.components.binary_sensor": _make_module(
             "components.binary_sensor",
