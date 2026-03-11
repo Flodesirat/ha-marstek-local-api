@@ -5,6 +5,7 @@ from typing import Any
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.redact import async_redact_data
 
 from .const import DATA_COORDINATOR, DOMAIN
@@ -101,6 +102,23 @@ def _multi_diagnostics(coordinator: MarstekMultiDeviceCoordinator) -> dict[str, 
     }
 
 
+def _entity_states_snapshot(hass: HomeAssistant, entry_id: str) -> dict[str, Any]:
+    """Get current state of all registered entities for this config entry."""
+    registry = er.async_get(hass)
+    entries = er.async_entries_for_config_entry(registry, entry_id)
+
+    result = {}
+    for entity_entry in sorted(entries, key=lambda e: e.entity_id):
+        state = hass.states.get(entity_entry.entity_id)
+        result[entity_entry.entity_id] = {
+            "state": state.state if state else None,
+            "unit": state.attributes.get("unit_of_measurement") if state else None,
+            "last_updated": state.last_updated.isoformat() if state else None,
+        }
+
+    return result
+
+
 async def async_get_config_entry_diagnostics(
     hass: HomeAssistant, entry: ConfigEntry
 ) -> dict[str, Any]:
@@ -110,6 +128,7 @@ async def async_get_config_entry_diagnostics(
         return {"error": "integration_not_initialized"}
 
     coordinator = data.get(DATA_COORDINATOR)
+    entity_states = _entity_states_snapshot(hass, entry.entry_id)
 
     if isinstance(coordinator, MarstekMultiDeviceCoordinator):
         return {
@@ -117,6 +136,7 @@ async def async_get_config_entry_diagnostics(
                 "title": entry.title,
                 "device_count": len(coordinator.device_coordinators),
             },
+            "entity_states": entity_states,
             "multi": _multi_diagnostics(coordinator),
         }
 
@@ -127,6 +147,7 @@ async def async_get_config_entry_diagnostics(
                 "device": entry.data.get("device"),
                 "ble_mac": entry.data.get("ble_mac"),
             },
+            "entity_states": entity_states,
             "device": _coordinator_snapshot(coordinator),
         }
 
