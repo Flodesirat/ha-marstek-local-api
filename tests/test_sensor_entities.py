@@ -46,6 +46,7 @@ def _make_single_coordinator(device_model: str = "VenusE", data: dict | None = N
     c = MagicMock()
     c.data = data if data is not None else {"battery": {"soc": 80}}
     c.device_model = device_model
+    c.compatibility.base_model = device_model
     c.is_category_fresh = MagicMock(return_value=True)
     return c
 
@@ -65,6 +66,7 @@ def _make_multi_coordinator(
     device_coordinator = MagicMock()
     device_coordinator.is_category_fresh = MagicMock(return_value=True)
     device_coordinator.device_model = device_model
+    device_coordinator.compatibility.base_model = device_model
 
     coordinator = MagicMock()
     coordinator.__class__ = MarstekMultiDeviceCoordinator  # makes isinstance() return True

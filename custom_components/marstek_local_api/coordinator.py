@@ -610,6 +610,13 @@ class MarstekDataUpdateCoordinator(DataUpdateCoordinator):
                                 pv_status["pv_power"] = self.compatibility.scale_value(
                                     pv_status["pv_power"], "pv_power"
                                 )
+                            # Scale per-channel power (same divisor as pv_power)
+                            for ch in (1, 2, 3, 4):
+                                field = f"pv{ch}_power"
+                                if field in pv_status:
+                                    pv_status[field] = self.compatibility.scale_value(
+                                        pv_status[field], "pv_power"
+                                    )
                             data["pv"] = pv_status
                             self.category_last_updated["pv"] = time.time()
                             had_success = True

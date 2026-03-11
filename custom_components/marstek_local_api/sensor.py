@@ -500,7 +500,49 @@ SENSOR_TYPES: tuple[MarstekSensorEntityDescription, ...] = (
     ),
 )
 
-# PV sensors (Venus D only)
+def _make_pv_channel_sensors() -> list[MarstekSensorEntityDescription]:
+    """Generate per-MPPT-channel sensor descriptions for channels 1-4."""
+    sensors = []
+    for n in range(1, 5):
+        sensors.extend([
+            MarstekSensorEntityDescription(
+                key=f"pv{n}_power",
+                name=f"PV channel {n} power",
+                native_unit_of_measurement=UnitOfPower.WATT,
+                device_class=SensorDeviceClass.POWER,
+                state_class=SensorStateClass.MEASUREMENT,
+                value_fn=lambda data, _n=n: data.get("pv", {}).get(f"pv{_n}_power"),
+                category="pv",
+            ),
+            MarstekSensorEntityDescription(
+                key=f"pv{n}_voltage",
+                name=f"PV channel {n} voltage",
+                native_unit_of_measurement=UnitOfElectricPotential.VOLT,
+                device_class=SensorDeviceClass.VOLTAGE,
+                state_class=SensorStateClass.MEASUREMENT,
+                value_fn=lambda data, _n=n: data.get("pv", {}).get(f"pv{_n}_voltage"),
+                category="pv",
+            ),
+            MarstekSensorEntityDescription(
+                key=f"pv{n}_current",
+                name=f"PV channel {n} current",
+                native_unit_of_measurement=UnitOfElectricCurrent.AMPERE,
+                device_class=SensorDeviceClass.CURRENT,
+                state_class=SensorStateClass.MEASUREMENT,
+                value_fn=lambda data, _n=n: data.get("pv", {}).get(f"pv{_n}_current"),
+                category="pv",
+            ),
+            MarstekSensorEntityDescription(
+                key=f"pv{n}_state",
+                name=f"PV channel {n} state",
+                value_fn=lambda data, _n=n: data.get("pv", {}).get(f"pv{_n}_state"),
+                category="pv",
+            ),
+        ])
+    return sensors
+
+
+# PV sensors (Venus A / D only)
 PV_SENSOR_TYPES: tuple[MarstekSensorEntityDescription, ...] = (
     MarstekSensorEntityDescription(
         key="pv_power",
@@ -529,6 +571,7 @@ PV_SENSOR_TYPES: tuple[MarstekSensorEntityDescription, ...] = (
         value_fn=lambda data: data.get("pv", {}).get("pv_current"),
         category="pv",
     ),
+    *_make_pv_channel_sensors(),
 )
 
 # Aggregate sensors (multi-device only)
@@ -744,8 +787,8 @@ async def async_setup_entry(
                     )
                 )
 
-            # Add PV sensors if Venus D or Venus A
-            if (device_coordinator.device_model in [DEVICE_MODEL_VENUS_D, DEVICE_MODEL_VENUS_A]):
+            # Add PV sensors if Venus D or Venus A (use normalized base_model)
+            if (device_coordinator.compatibility.base_model in [DEVICE_MODEL_VENUS_D, DEVICE_MODEL_VENUS_A]):
                 for description in PV_SENSOR_TYPES:
                     entities.append(
                         MarstekMultiDeviceSensor(
@@ -784,8 +827,8 @@ async def async_setup_entry(
                 )
             )
 
-        # Add PV sensors if Venus D or Venus A
-        if coordinator.device_model in [DEVICE_MODEL_VENUS_D, DEVICE_MODEL_VENUS_A]:
+        # Add PV sensors if Venus D or Venus A (use normalized base_model)
+        if coordinator.compatibility.base_model in [DEVICE_MODEL_VENUS_D, DEVICE_MODEL_VENUS_A]:
             for description in PV_SENSOR_TYPES:
                 entities.append(
                     MarstekSensor(
