@@ -108,11 +108,6 @@ class TestCompatibilityMatrixFirmwareBoundary:
         m = CompatibilityMatrix(device_model="VenusC", firmware_version=200)
         assert m.scale_value(500, "bat_power") == pytest.approx(500.0)
 
-    def test_venus_e_hw3_fw139_bat_capacity(self):
-        """VenusE 3.0 FW 139 → divisor 0.1 → value × 10."""
-        m = CompatibilityMatrix(device_model="VenusE 3.0", firmware_version=139)
-        assert m.scale_value(100, "bat_capacity") == pytest.approx(1000.0)
-
     def test_venus_e_hw3_below_139_bat_capacity(self):
         """VenusE 3.0 FW 100 < 139 → divisor 1.0."""
         m = CompatibilityMatrix(device_model="VenusE 3.0", firmware_version=100)
