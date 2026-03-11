@@ -350,3 +350,64 @@ class TestAsyncSetupEntry:
 
         expected = len(SENSOR_TYPES) + len(PV_SENSOR_TYPES) + len(AGGREGATE_SENSOR_TYPES)
         assert len(added[0]) == expected
+
+    async def test_pv_channel_keys_present_for_venus_d(self):
+        """VenusD — all pv1..pv4 channel sensor keys are present."""
+        hass = MagicMock()
+        entry = _make_entry(device="VenusD")
+        coordinator = _make_single_coordinator(device_model=DEVICE_MODEL_VENUS_D)
+        hass.data = {DOMAIN: {entry.entry_id: {DATA_COORDINATOR: coordinator}}}
+
+        added = []
+        await async_setup_entry(hass, entry, added.append)
+
+        keys = {e.entity_description.key for e in added[0]}
+        for ch in range(1, 5):
+            for field in ("power", "voltage", "current", "state"):
+                assert f"pv{ch}_{field}" in keys, f"pv{ch}_{field} missing for VenusD"
+
+    async def test_pv_channel_keys_present_for_venus_a(self):
+        """VenusA — all pv1..pv4 channel sensor keys are present."""
+        hass = MagicMock()
+        entry = _make_entry(device="VenusA")
+        coordinator = _make_single_coordinator(device_model=DEVICE_MODEL_VENUS_A)
+        hass.data = {DOMAIN: {entry.entry_id: {DATA_COORDINATOR: coordinator}}}
+
+        added = []
+        await async_setup_entry(hass, entry, added.append)
+
+        keys = {e.entity_description.key for e in added[0]}
+        for ch in range(1, 5):
+            for field in ("power", "voltage", "current", "state"):
+                assert f"pv{ch}_{field}" in keys, f"pv{ch}_{field} missing for VenusA"
+
+    async def test_pv_channel_keys_present_for_venus_a_with_space(self):
+        """'Venus A' (with space, as reported by device) — pv channel sensors created."""
+        hass = MagicMock()
+        entry = _make_entry(device="Venus A")
+        coordinator = _make_single_coordinator(device_model="Venus A")
+        coordinator.compatibility.base_model = DEVICE_MODEL_VENUS_A  # normalized
+        hass.data = {DOMAIN: {entry.entry_id: {DATA_COORDINATOR: coordinator}}}
+
+        added = []
+        await async_setup_entry(hass, entry, added.append)
+
+        keys = {e.entity_description.key for e in added[0]}
+        for ch in range(1, 5):
+            for field in ("power", "voltage", "current", "state"):
+                assert f"pv{ch}_{field}" in keys, f"pv{ch}_{field} missing for 'Venus A'"
+
+    async def test_pv_channel_keys_absent_for_venus_e(self):
+        """VenusE — no pv channel sensors created."""
+        hass = MagicMock()
+        entry = _make_entry(device="VenusE")
+        coordinator = _make_single_coordinator(device_model="VenusE")
+        hass.data = {DOMAIN: {entry.entry_id: {DATA_COORDINATOR: coordinator}}}
+
+        added = []
+        await async_setup_entry(hass, entry, added.append)
+
+        keys = {e.entity_description.key for e in added[0]}
+        for ch in range(1, 5):
+            for field in ("power", "voltage", "current", "state"):
+                assert f"pv{ch}_{field}" not in keys, f"pv{ch}_{field} should not exist for VenusE"
