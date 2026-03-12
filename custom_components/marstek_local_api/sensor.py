@@ -178,71 +178,32 @@ SENSOR_TYPES: tuple[MarstekSensorEntityDescription, ...] = (
         value_fn=lambda data: _wh_to_kwh(data.get("battery", {}).get("rated_capacity")),
         category="battery",
     ),
-    MarstekSensorEntityDescription(
-        key="battery_voltage",
-        name="Voltage",
-        native_unit_of_measurement=UnitOfElectricPotential.VOLT,
-        device_class=SensorDeviceClass.VOLTAGE,
-        state_class=SensorStateClass.MEASUREMENT,
-        value_fn=lambda data: data.get("battery", {}).get("bat_voltage"),
-        category="battery",
-    ),
-    MarstekSensorEntityDescription(
-        key="battery_current",
-        name="Current",
-        native_unit_of_measurement=UnitOfElectricCurrent.AMPERE,
-        device_class=SensorDeviceClass.CURRENT,
-        state_class=SensorStateClass.MEASUREMENT,
-        value_fn=lambda data: data.get("battery", {}).get("bat_current"),
-        category="battery",
-    ),
-    MarstekSensorEntityDescription(
-        key="battery_error_code",
-        name="Error code",
-        value_fn=lambda data: data.get("battery", {}).get("error_code"),
-        category="battery",
-    ),
-    MarstekSensorEntityDescription(
-        key="battery_discharge_flag",
-        name="Discharge flag",
-        value_fn=lambda data: data.get("battery", {}).get("dischrg_flag"),
-        category="battery",
-    ),
     # Energy System sensors
-    MarstekSensorEntityDescription(
-        key="battery_power",
-        name="Power",
-        native_unit_of_measurement=UnitOfPower.WATT,
-        device_class=SensorDeviceClass.POWER,
-        state_class=SensorStateClass.MEASUREMENT,
-        value_fn=lambda data: data.get("es", {}).get("bat_power"),
-        category="es",
-    ),
     # Calculated battery sensors (Design Doc §174-202)
     MarstekSensorEntityDescription(
-        key="battery_power_in",
-        name="Power in",
+        key="power_grid_in",
+        name="Power grid in",
         native_unit_of_measurement=UnitOfPower.WATT,
         device_class=SensorDeviceClass.POWER,
         state_class=SensorStateClass.MEASUREMENT,
-        value_fn=lambda data: max(0, data.get("es", {}).get("bat_power", 0) or 0),
+        value_fn=lambda data: max(0, -(data.get("es", {}).get("ongrid_power", 0) or 0)),
         category="es",
     ),
     MarstekSensorEntityDescription(
-        key="battery_power_out",
-        name="Power out",
+        key="power_grid_out",
+        name="Power grid out",
         native_unit_of_measurement=UnitOfPower.WATT,
         device_class=SensorDeviceClass.POWER,
         state_class=SensorStateClass.MEASUREMENT,
-        value_fn=lambda data: max(0, -(data.get("es", {}).get("bat_power", 0) or 0)),
+        value_fn=lambda data: max(0, (data.get("es", {}).get("ongrid_power", 0) or 0)),
         category="es",
     ),
     MarstekSensorEntityDescription(
         key="battery_state",
         name="State",
         value_fn=lambda data: (
-            "charging" if (data.get("es", {}).get("bat_power", 0) or 0) > 0
-            else "discharging" if (data.get("es", {}).get("bat_power", 0) or 0) < 0
+            "charging" if (data.get("es", {}).get("ongrid_power", 0) or 0) < 0
+            else "discharging" if (data.get("es", {}).get("ongrid_power", 0) or 0) > 0
             else "idle"
         ),
         category="es",
@@ -404,12 +365,6 @@ SENSOR_TYPES: tuple[MarstekSensorEntityDescription, ...] = (
         value_fn=lambda data: data.get("em", {}).get("total_power"),
         category="em",
     ),
-    MarstekSensorEntityDescription(
-        key="ct_parse_state",
-        name="CT parse state",
-        value_fn=lambda data: data.get("em", {}).get("parse_state"),
-        category="em",
-    ),
     # WiFi sensors
     MarstekSensorEntityDescription(
         key="wifi_rssi",
@@ -550,25 +505,7 @@ PV_SENSOR_TYPES: tuple[MarstekSensorEntityDescription, ...] = (
         native_unit_of_measurement=UnitOfPower.WATT,
         device_class=SensorDeviceClass.POWER,
         state_class=SensorStateClass.MEASUREMENT,
-        value_fn=lambda data: data.get("pv", {}).get("pv_power"),
-        category="pv",
-    ),
-    MarstekSensorEntityDescription(
-        key="pv_voltage",
-        name="PV voltage",
-        native_unit_of_measurement=UnitOfElectricPotential.VOLT,
-        device_class=SensorDeviceClass.VOLTAGE,
-        state_class=SensorStateClass.MEASUREMENT,
-        value_fn=lambda data: data.get("pv", {}).get("pv_voltage"),
-        category="pv",
-    ),
-    MarstekSensorEntityDescription(
-        key="pv_current",
-        name="PV current",
-        native_unit_of_measurement=UnitOfElectricCurrent.AMPERE,
-        device_class=SensorDeviceClass.CURRENT,
-        state_class=SensorStateClass.MEASUREMENT,
-        value_fn=lambda data: data.get("pv", {}).get("pv_current"),
+        value_fn=lambda data: data.get("es", {}).get("pv_power"),
         category="pv",
     ),
     *_make_pv_channel_sensors(),
