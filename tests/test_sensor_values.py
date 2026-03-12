@@ -37,24 +37,6 @@ class TestBatterySensors:
         val = sensor_map["battery_available_capacity"].value_fn(venus_a_coordinator_data)
         assert val == pytest.approx(3.328)
 
-    def test_charging_flag(self, sensor_map, venus_a_coordinator_data):
-        """discharge_flag sensor reflects dischrg_flag=True."""
-        val = sensor_map["battery_discharge_flag"].value_fn(venus_a_coordinator_data)
-        assert val is True
-
-    def test_voltage_absent_returns_none(self, sensor_map, venus_a_coordinator_data):
-        """bat_voltage is not in the fixture → sensor returns None."""
-        val = sensor_map["battery_voltage"].value_fn(venus_a_coordinator_data)
-        assert val is None
-
-    def test_current_absent_returns_none(self, sensor_map, venus_a_coordinator_data):
-        val = sensor_map["battery_current"].value_fn(venus_a_coordinator_data)
-        assert val is None
-
-    def test_error_code_absent_returns_none(self, sensor_map, venus_a_coordinator_data):
-        val = sensor_map["battery_error_code"].value_fn(venus_a_coordinator_data)
-        assert val is None
-
     def test_usable_capacity_default_dod(self, sensor_map, venus_a_coordinator_data):
         """usable = rated_capacity * 80% = 4160 * 0.80 = 3328 Wh = 3.328 kWh."""
         val = sensor_map["battery_usable_capacity"].value_fn(venus_a_coordinator_data)
@@ -195,17 +177,13 @@ class TestBatterySensors:
 class TestESSensorsAbsent:
     """When ES.GetStatus was not captured, power sensors return 0/None/idle."""
 
-    def test_battery_power_none(self, sensor_map, venus_a_coordinator_data):
-        val = sensor_map["battery_power"].value_fn(venus_a_coordinator_data)
-        assert val is None
-
-    def test_battery_power_in_zero(self, sensor_map, venus_a_coordinator_data):
-        """value_fn uses default 0 when es absent → max(0, 0) = 0."""
-        val = sensor_map["battery_power_in"].value_fn(venus_a_coordinator_data)
+    def test_power_grid_in_zero(self, sensor_map, venus_a_coordinator_data):
+        """No ES data → ongrid_power absent → max(0, 0) = 0."""
+        val = sensor_map["power_grid_in"].value_fn(venus_a_coordinator_data)
         assert val == 0
 
-    def test_battery_power_out_zero(self, sensor_map, venus_a_coordinator_data):
-        val = sensor_map["battery_power_out"].value_fn(venus_a_coordinator_data)
+    def test_power_grid_out_zero(self, sensor_map, venus_a_coordinator_data):
+        val = sensor_map["power_grid_out"].value_fn(venus_a_coordinator_data)
         assert val == 0
 
     def test_battery_state_idle(self, sensor_map, venus_a_coordinator_data):
@@ -230,7 +208,7 @@ class TestESSensorsWithData:
 
     @pytest.fixture
     def data_discharging(self, venus_a_coordinator_data):
-        return {**venus_a_coordinator_data, "es": {"bat_power": -800}}
+        return {**venus_a_coordinator_data, "es": {"bat_power": -800, "ongrid_power": 800}}
 
     def test_battery_state_charging(self, sensor_map, data_charging):
         assert sensor_map["battery_state"].value_fn(data_charging) == "charging"
@@ -238,19 +216,21 @@ class TestESSensorsWithData:
     def test_battery_state_discharging(self, sensor_map, data_discharging):
         assert sensor_map["battery_state"].value_fn(data_discharging) == "discharging"
 
-    def test_battery_power_in_charging(self, sensor_map, data_charging):
-        assert sensor_map["battery_power_in"].value_fn(data_charging) == 1200
+    def test_power_grid_in_charging(self, sensor_map, data_charging):
+        """Importing from grid: ongrid_power=-300 → power_grid_in=max(0,300)=300."""
+        assert sensor_map["power_grid_in"].value_fn(data_charging) == 300
 
-    def test_battery_power_out_charging(self, sensor_map, data_charging):
-        """While charging, power_out = max(0, -1200) = 0."""
-        assert sensor_map["battery_power_out"].value_fn(data_charging) == 0
+    def test_power_grid_out_charging(self, sensor_map, data_charging):
+        """Importing from grid: ongrid_power=-300 → power_grid_out=max(0,-300)=0."""
+        assert sensor_map["power_grid_out"].value_fn(data_charging) == 0
 
-    def test_battery_power_out_discharging(self, sensor_map, data_discharging):
-        """While discharging, power_out = max(0, 800) = 800."""
-        assert sensor_map["battery_power_out"].value_fn(data_discharging) == 800
+    def test_power_grid_out_discharging(self, sensor_map, data_discharging):
+        """Exporting to grid: ongrid_power=800 → power_grid_out=max(0,800)=800."""
+        assert sensor_map["power_grid_out"].value_fn(data_discharging) == 800
 
-    def test_battery_power_in_discharging(self, sensor_map, data_discharging):
-        assert sensor_map["battery_power_in"].value_fn(data_discharging) == 0
+    def test_power_grid_in_discharging(self, sensor_map, data_discharging):
+        """Exporting to grid: ongrid_power=800 → power_grid_in=max(0,-800)=0."""
+        assert sensor_map["power_grid_in"].value_fn(data_discharging) == 0
 
     def test_total_grid_import_kwh(self, sensor_map, data_charging):
         """20000 Wh → 20.0 kWh."""
@@ -264,9 +244,6 @@ class TestESSensorsWithData:
 
     def test_total_pv_energy_kwh(self, sensor_map, data_charging):
         assert sensor_map["total_pv_energy"].value_fn(data_charging) == pytest.approx(50.0)
-
-    def test_battery_power_raw(self, sensor_map, data_charging):
-        assert sensor_map["battery_power"].value_fn(data_charging) == 1200
 
     def test_grid_power(self, sensor_map, data_charging):
         assert sensor_map["grid_power"].value_fn(data_charging) == -300
@@ -295,10 +272,6 @@ class TestEMSensors:
         val = sensor_map["ct_total_power"].value_fn(venus_a_coordinator_data)
         assert val == 3688
 
-    def test_ct_parse_state_absent(self, sensor_map, venus_a_coordinator_data):
-        """parse_state not in fixture → None."""
-        val = sensor_map["ct_parse_state"].value_fn(venus_a_coordinator_data)
-        assert val is None
 
 
 # ---------------------------------------------------------------------------
@@ -387,19 +360,10 @@ class TestPVSensors:
         val = pv_sensor_map["pv_power"].value_fn(venus_a_coordinator_data)
         assert val is None
 
-    def test_pv_voltage_absent(self, pv_sensor_map, venus_a_coordinator_data):
-        val = pv_sensor_map["pv_voltage"].value_fn(venus_a_coordinator_data)
-        assert val is None
-
-    def test_pv_current_absent(self, pv_sensor_map, venus_a_coordinator_data):
-        val = pv_sensor_map["pv_current"].value_fn(venus_a_coordinator_data)
-        assert val is None
-
     def test_pv_power_with_data(self, pv_sensor_map, venus_a_coordinator_data):
-        data = {**venus_a_coordinator_data, "pv": {"pv_power": 1500, "pv_voltage": 380, "pv_current": 3.9}}
+        """pv_power reads from es.pv_power (sourced from ES.GetStatus)."""
+        data = {**venus_a_coordinator_data, "es": {"pv_power": 1500}}
         assert pv_sensor_map["pv_power"].value_fn(data) == 1500
-        assert pv_sensor_map["pv_voltage"].value_fn(data) == 380
-        assert pv_sensor_map["pv_current"].value_fn(data) == pytest.approx(3.9)
 
 
 # ---------------------------------------------------------------------------
