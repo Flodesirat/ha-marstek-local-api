@@ -367,6 +367,31 @@ class TestPVSensors:
         assert pv_sensor_map["pv2_power"].value_fn(data) == 600
 
 
+class TestPVPowerEsSensor:
+    """pv_power_es reads from pv.pv_power (sum of channels computed by coordinator)."""
+
+    def test_pv_power_es_reads_from_pv_key(self, sensor_map):
+        """Reads pv.pv_power, not es.pv_power."""
+        data = {"pv": {"pv_power": 900}, "es": {"pv_power": 0}}
+        assert sensor_map["pv_power_es"].value_fn(data) == 900
+
+    def test_pv_power_es_no_pv_data_returns_none(self, sensor_map):
+        """No pv key → None."""
+        assert sensor_map["pv_power_es"].value_fn({}) is None
+        assert sensor_map["pv_power_es"].value_fn({"es": {"pv_power": 300}}) is None
+
+    def test_pv_power_es_with_fixture(self, sensor_map, venus_a_coordinator_data):
+        """Fixture has pv present with all channels=0 → pv_power absent → None."""
+        # The fixture pv has no pv_power key (channels only), so returns None
+        val = sensor_map["pv_power_es"].value_fn(venus_a_coordinator_data)
+        assert val is None
+
+    def test_pv_power_es_ignores_es_pv_power(self, sensor_map):
+        """es.pv_power (always 0 from device) is not used."""
+        data = {"es": {"pv_power": 999}}
+        assert sensor_map["pv_power_es"].value_fn(data) is None
+
+
 # ---------------------------------------------------------------------------
 # Available capacity edge cases
 # ---------------------------------------------------------------------------

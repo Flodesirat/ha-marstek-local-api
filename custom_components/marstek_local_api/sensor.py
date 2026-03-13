@@ -288,8 +288,8 @@ SENSOR_TYPES: tuple[MarstekSensorEntityDescription, ...] = (
         native_unit_of_measurement=UnitOfPower.WATT,
         device_class=SensorDeviceClass.POWER,
         state_class=SensorStateClass.MEASUREMENT,
-        value_fn=lambda data: data.get("es", {}).get("pv_power"),
-        category="es",
+        value_fn=lambda data: data.get("pv", {}).get("pv_power"),
+        category="pv",
     ),
     MarstekSensorEntityDescription(
         key="total_pv_energy",

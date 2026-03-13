@@ -759,6 +759,48 @@ class TestAsyncUpdateData:
         assert "pv" in data
         assert "pv_power" in data["pv"]
 
+    async def test_pv_channel1_no_extra_multiplier(self):
+        """Channel 1: only ÷10 scaling (VenusA FW147), no ×10 correction.
+        raw=1000 → scale_value(1000, pv_power) = 100 W, no ×10."""
+        coord = _make_coord(data={"old": "data"}, update_count=10)
+        coord.api.get_battery_status = AsyncMock(return_value={"soc": 70})
+        coord.api.get_pv_status = AsyncMock(return_value={"pv1_power": 1000})
+        data = await coord._async_update_data()
+        assert data["pv"]["pv1_power"] == pytest.approx(100.0)
+
+    async def test_pv_channels_2_3_4_multiplied_by_10(self):
+        """Channels 2-4: ÷10 then ×10, net result = raw value.
+        raw=500 → scale_value(500, pv_power) = 50 → ×10 = 500 W."""
+        coord = _make_coord(data={"old": "data"}, update_count=10)
+        coord.api.get_battery_status = AsyncMock(return_value={"soc": 70})
+        coord.api.get_pv_status = AsyncMock(return_value={
+            "pv2_power": 500, "pv3_power": 200, "pv4_power": 100,
+        })
+        data = await coord._async_update_data()
+        assert data["pv"]["pv2_power"] == pytest.approx(500.0)
+        assert data["pv"]["pv3_power"] == pytest.approx(200.0)
+        assert data["pv"]["pv4_power"] == pytest.approx(100.0)
+
+    async def test_pv_power_computed_as_channel_sum(self):
+        """pv_power = pv1+pv2+pv3+pv4 after individual scaling.
+        ch1: 1000→100, ch2: 500→500, ch3: 200→200, ch4: 100→100 → sum=900 W."""
+        coord = _make_coord(data={"old": "data"}, update_count=10)
+        coord.api.get_battery_status = AsyncMock(return_value={"soc": 70})
+        coord.api.get_pv_status = AsyncMock(return_value={
+            "pv1_power": 1000, "pv2_power": 500, "pv3_power": 200, "pv4_power": 100,
+        })
+        data = await coord._async_update_data()
+        assert data["pv"]["pv_power"] == pytest.approx(900.0)
+
+    async def test_pv_power_computed_partial_channels(self):
+        """pv_power uses only present channels; missing channels contribute 0."""
+        coord = _make_coord(data={"old": "data"}, update_count=10)
+        coord.api.get_battery_status = AsyncMock(return_value={"soc": 70})
+        coord.api.get_pv_status = AsyncMock(return_value={"pv1_power": 2000})
+        data = await coord._async_update_data()
+        # ch1: 2000/10=200, channels 2-4 absent → 0
+        assert data["pv"]["pv_power"] == pytest.approx(200.0)
+
     async def test_update_count_incremented(self):
         """update_count is incremented each call."""
         coord = _make_coord(data={"old": "data"}, update_count=5)
