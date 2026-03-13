@@ -267,7 +267,7 @@ SENSOR_TYPES: tuple[MarstekSensorEntityDescription, ...] = (
     ),
     MarstekSensorEntityDescription(
         key="grid_power",
-        name="Grid power",
+        name="Power Grid",
         native_unit_of_measurement=UnitOfPower.WATT,
         device_class=SensorDeviceClass.POWER,
         state_class=SensorStateClass.MEASUREMENT,
@@ -276,7 +276,7 @@ SENSOR_TYPES: tuple[MarstekSensorEntityDescription, ...] = (
     ),
     MarstekSensorEntityDescription(
         key="offgrid_power",
-        name="Off-grid power",
+        name="Power Off-grid",
         native_unit_of_measurement=UnitOfPower.WATT,
         device_class=SensorDeviceClass.POWER,
         state_class=SensorStateClass.MEASUREMENT,
@@ -285,7 +285,7 @@ SENSOR_TYPES: tuple[MarstekSensorEntityDescription, ...] = (
     ),
     MarstekSensorEntityDescription(
         key="pv_power_es",
-        name="Solar power",
+        name="Power Solar",
         native_unit_of_measurement=UnitOfPower.WATT,
         device_class=SensorDeviceClass.POWER,
         state_class=SensorStateClass.MEASUREMENT,
@@ -499,15 +499,6 @@ def _make_pv_channel_sensors() -> list[MarstekSensorEntityDescription]:
 
 # PV sensors (Venus A / D only)
 PV_SENSOR_TYPES: tuple[MarstekSensorEntityDescription, ...] = (
-    MarstekSensorEntityDescription(
-        key="pv_power",
-        name="PV power",
-        native_unit_of_measurement=UnitOfPower.WATT,
-        device_class=SensorDeviceClass.POWER,
-        state_class=SensorStateClass.MEASUREMENT,
-        value_fn=lambda data: data.get("es", {}).get("pv_power"),
-        category="pv",
-    ),
     *_make_pv_channel_sensors(),
 )
 

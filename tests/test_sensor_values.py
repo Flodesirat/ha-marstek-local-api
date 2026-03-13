@@ -353,17 +353,18 @@ class TestDiagnosticSensor:
 # ---------------------------------------------------------------------------
 
 class TestPVSensors:
-    """Venus A has multi-channel PV, but PV_SENSOR_TYPES reads pv.pv_power etc.
-    The fixture has pv1_power/pv2_power but not pv_power — those are absent."""
+    """PV_SENSOR_TYPES contains only per-channel sensors (pv1_*..pv4_*)."""
 
-    def test_pv_power_absent(self, pv_sensor_map, venus_a_coordinator_data):
-        val = pv_sensor_map["pv_power"].value_fn(venus_a_coordinator_data)
+    def test_pv1_power_no_pv_data(self, pv_sensor_map):
+        """No pv key in data → pv1_power returns None."""
+        val = pv_sensor_map["pv1_power"].value_fn({})
         assert val is None
 
-    def test_pv_power_with_data(self, pv_sensor_map, venus_a_coordinator_data):
-        """pv_power reads from es.pv_power (sourced from ES.GetStatus)."""
-        data = {**venus_a_coordinator_data, "es": {"pv_power": 1500}}
-        assert pv_sensor_map["pv_power"].value_fn(data) == 1500
+    def test_pv_channel_power_with_data(self, pv_sensor_map, venus_a_coordinator_data):
+        """pv1_power and pv2_power read from pv.pv1_power / pv.pv2_power."""
+        data = {**venus_a_coordinator_data, "pv": {"pv1_power": 750, "pv2_power": 600}}
+        assert pv_sensor_map["pv1_power"].value_fn(data) == 750
+        assert pv_sensor_map["pv2_power"].value_fn(data) == 600
 
 
 # ---------------------------------------------------------------------------
