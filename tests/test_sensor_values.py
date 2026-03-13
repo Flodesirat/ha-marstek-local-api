@@ -33,9 +33,9 @@ class TestBatterySensors:
         assert val == pytest.approx(4.16)
 
     def test_available_capacity(self, sensor_map, venus_a_coordinator_data):
-        """available = (100 - soc) * rated_capacity / 100 = (100-20)*4160/100 = 3328 Wh = 3.328 kWh."""
+        """available = rated_capacity - bat_capacity = 4160 - 869 = 3291 Wh = 3.291 kWh."""
         val = sensor_map["battery_available_capacity"].value_fn(venus_a_coordinator_data)
-        assert val == pytest.approx(3.328)
+        assert val == pytest.approx(3.291)
 
     def test_usable_capacity_default_dod(self, sensor_map, venus_a_coordinator_data):
         """usable = rated_capacity * 80% = 4160 * 0.80 = 3328 Wh = 3.328 kWh."""
@@ -116,39 +116,39 @@ class TestBatterySensors:
     # --- time_to_full ---
 
     def test_time_to_full_while_charging(self, sensor_map, venus_a_coordinator_data):
-        """Charging at 500 W: (4160 - 869) / 500 * 60 = 394.92 min."""
-        data = {**venus_a_coordinator_data, "es": {"bat_power": 500}}
+        """Charging at 500 W (ongrid_power=-500): (4160 - 869) / 500 * 60 = 394.92 min."""
+        data = {**venus_a_coordinator_data, "es": {"ongrid_power": -500}}
         val = sensor_map["battery_time_to_full"].value_fn(data)
         assert val == pytest.approx((4160 - 869) / 500 * 60)
 
     def test_time_to_full_not_charging_returns_none(self, sensor_map, venus_a_coordinator_data):
-        """Not charging (power <= 0) → None."""
-        data = {**venus_a_coordinator_data, "es": {"bat_power": -100}}
+        """Not charging (ongrid_power >= 0) → None."""
+        data = {**venus_a_coordinator_data, "es": {"ongrid_power": 100}}
         assert sensor_map["battery_time_to_full"].value_fn(data) is None
-        data2 = {**venus_a_coordinator_data, "es": {"bat_power": 0}}
+        data2 = {**venus_a_coordinator_data, "es": {"ongrid_power": 0}}
         assert sensor_map["battery_time_to_full"].value_fn(data2) is None
 
     def test_time_to_full_no_battery_data_returns_none(self, sensor_map):
-        data = {"battery": {}, "es": {"bat_power": 500}, "_config": {"dod_percent": 80}}
+        data = {"battery": {}, "es": {"ongrid_power": -500}, "_config": {"dod_percent": 80}}
         assert sensor_map["battery_time_to_full"].value_fn(data) is None
 
     def test_time_to_full_no_power_returns_none(self, sensor_map, venus_a_coordinator_data):
-        """es absent → bat_power is None → None."""
+        """No ongrid_power key → ongrid=0 → None."""
         assert sensor_map["battery_time_to_full"].value_fn(venus_a_coordinator_data) is None
 
     # --- time_to_dod ---
 
     def test_time_to_dod_while_discharging(self, sensor_map, venus_a_coordinator_data):
-        """Discharging at 100 W, available=37 Wh → 37/100*60=22.2 min."""
-        data = {**venus_a_coordinator_data, "es": {"bat_power": -100}}
+        """Discharging at 100 W (ongrid_power=100), available=37 Wh → 37/100*60=22.2 min."""
+        data = {**venus_a_coordinator_data, "es": {"ongrid_power": 100}}
         val = sensor_map["battery_time_to_dod"].value_fn(data)
         assert val == pytest.approx(37.0 / 100 * 60)
 
     def test_time_to_dod_not_discharging_returns_none(self, sensor_map, venus_a_coordinator_data):
-        """Not discharging (power >= 0) → None."""
-        data = {**venus_a_coordinator_data, "es": {"bat_power": 200}}
+        """Not discharging (ongrid_power <= 0) → None."""
+        data = {**venus_a_coordinator_data, "es": {"ongrid_power": -200}}
         assert sensor_map["battery_time_to_dod"].value_fn(data) is None
-        data2 = {**venus_a_coordinator_data, "es": {"bat_power": 0}}
+        data2 = {**venus_a_coordinator_data, "es": {"ongrid_power": 0}}
         assert sensor_map["battery_time_to_dod"].value_fn(data2) is None
 
     def test_time_to_dod_at_dod_limit_returns_zero(self, sensor_map, venus_a_coordinator_data):
@@ -156,17 +156,17 @@ class TestBatterySensors:
         data = {
             **venus_a_coordinator_data,
             "battery": {**venus_a_coordinator_data["battery"], "bat_capacity": 832.0},
-            "es": {"bat_power": -200},
+            "es": {"ongrid_power": 200},
         }
         val = sensor_map["battery_time_to_dod"].value_fn(data)
         assert val == pytest.approx(0.0)
 
     def test_time_to_dod_no_battery_data_returns_none(self, sensor_map):
-        data = {"battery": {}, "es": {"bat_power": -100}, "_config": {"dod_percent": 80}}
+        data = {"battery": {}, "es": {"ongrid_power": 100}, "_config": {"dod_percent": 80}}
         assert sensor_map["battery_time_to_dod"].value_fn(data) is None
 
     def test_time_to_dod_no_power_returns_none(self, sensor_map, venus_a_coordinator_data):
-        """es absent → bat_power is None → None."""
+        """No ongrid_power key → ongrid=0 → None."""
         assert sensor_map["battery_time_to_dod"].value_fn(venus_a_coordinator_data) is None
 
 
@@ -373,12 +373,12 @@ class TestPVSensors:
 
 class TestAvailableCapacityEdgeCases:
     def test_full_battery(self, sensor_map):
-        data = {"battery": {"soc": 100, "rated_capacity": 4160.0}}
+        data = {"battery": {"bat_capacity": 4160.0, "rated_capacity": 4160.0}}
         val = sensor_map["battery_available_capacity"].value_fn(data)
         assert val == pytest.approx(0.0)
 
     def test_empty_battery(self, sensor_map):
-        data = {"battery": {"soc": 0, "rated_capacity": 4160.0}}
+        data = {"battery": {"bat_capacity": 0.0, "rated_capacity": 4160.0}}
         val = sensor_map["battery_available_capacity"].value_fn(data)
         assert val == pytest.approx(4.160)
 
