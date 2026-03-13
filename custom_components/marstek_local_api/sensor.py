@@ -93,34 +93,27 @@ def _available_until_dod(data: dict) -> float | None:
 
 def _time_to_full(data: dict) -> float | None:
     """Estimated minutes until battery is full (only when charging)."""
-    battery = data.get("battery", {})
-    rated = battery.get("rated_capacity")
-    current = battery.get("bat_capacity")
-    power = data.get("es", {}).get("bat_power")
-    if rated is None or current is None or power is None or power <= 0:
+    energy_before_full_kwh = _available_capacity_kwh(data)
+    if data["es"].get(["battery_state"],"") != "charging":
         return None
+    
     try:
-        to_fill = float(rated) - float(current)
-        return max(0.0, to_fill / float(power) * 60)
+        charge_power_w = data["es"]["power_grid_in"] 
+        return energy_before_full_kwh/charge_power_w * 60
     except (TypeError, ValueError, ZeroDivisionError):
         return None
-
+    
 
 def _time_to_dod(data: dict) -> float | None:
     """Estimated minutes until battery hits DOD limit (only when discharging)."""
-    battery = data.get("battery", {})
-    rated = battery.get("rated_capacity")
-    current = battery.get("bat_capacity")
-    power = data.get("es", {}).get("bat_power")
-    dod = data.get("_config", {}).get("dod_percent", DOD_DEFAULT)
-    if rated is None or current is None or power is None or power >= 0:
+    energy_before_dod_wh = _available_until_dod(data)
+    if data["es"].get(["battery_state"],"") != "discharging":
         return None
+    
     try:
-        reserved = float(rated) * (1 - dod / 100)
-        available = max(0.0, float(current) - reserved)
-        discharge_power = abs(float(power))
-        return available / discharge_power * 60
-    except (TypeError, ValueError):
+        discharge_power_w = data["es"]["power_grid_out"] 
+        return energy_before_dod_wh/discharge_power_w * 60
+    except (TypeError, ValueError, ZeroDivisionError):
         return None
 
 
