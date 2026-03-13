@@ -22,8 +22,8 @@ from .const import (
     DEVICE_MODEL_VENUS_D,
     DOD_DEFAULT,
     STALE_DATA_THRESHOLD,
-    UPDATE_INTERVAL_MEDIUM,
-    UPDATE_INTERVAL_SLOW,
+    UPDATE_INTERVAL_MEDIUM_SECS,
+    UPDATE_INTERVAL_SLOW_SECS,
     METHOD_BATTERY_STATUS,
     METHOD_ES_STATUS,
 )
@@ -44,6 +44,8 @@ class MarstekMultiDeviceCoordinator(DataUpdateCoordinator):
         command_max_attempts: int = COMMAND_MAX_ATTEMPTS,
         stale_data_threshold: int = STALE_DATA_THRESHOLD,
         dod_percent: int = DOD_DEFAULT,
+        medium_interval_secs: int = UPDATE_INTERVAL_MEDIUM_SECS,
+        slow_interval_secs: int = UPDATE_INTERVAL_SLOW_SECS,
     ) -> None:
         """Initialize the multi-device coordinator."""
         self.devices = devices
@@ -54,6 +56,8 @@ class MarstekMultiDeviceCoordinator(DataUpdateCoordinator):
         self.command_max_attempts = command_max_attempts
         self.stale_data_threshold = stale_data_threshold
         self.dod_percent = dod_percent
+        self.medium_interval_secs = medium_interval_secs
+        self.slow_interval_secs = slow_interval_secs
 
         super().__init__(
             hass,
@@ -99,6 +103,8 @@ class MarstekMultiDeviceCoordinator(DataUpdateCoordinator):
                 command_max_attempts=self.command_max_attempts,
                 stale_data_threshold=self.stale_data_threshold,
                 dod_percent=self.dod_percent,
+                medium_interval_secs=self.medium_interval_secs,
+                slow_interval_secs=self.slow_interval_secs,
             )
 
             self.device_coordinators[mac] = coordinator
@@ -309,6 +315,8 @@ class MarstekDataUpdateCoordinator(DataUpdateCoordinator):
         command_max_attempts: int = COMMAND_MAX_ATTEMPTS,
         stale_data_threshold: int = STALE_DATA_THRESHOLD,
         dod_percent: int = DOD_DEFAULT,
+        medium_interval_secs: int = UPDATE_INTERVAL_MEDIUM_SECS,
+        slow_interval_secs: int = UPDATE_INTERVAL_SLOW_SECS,
     ) -> None:
         """Initialize the coordinator."""
         self.api = api
@@ -318,6 +326,8 @@ class MarstekDataUpdateCoordinator(DataUpdateCoordinator):
         self.command_max_attempts = command_max_attempts
         self.stale_data_threshold = stale_data_threshold
         self.dod_percent = dod_percent
+        self.medium_interval_secs = medium_interval_secs
+        self.slow_interval_secs = slow_interval_secs
         self.update_count = 1  # Start at 1 to skip slow updates on first refresh
         self.last_message_timestamp: float | None = None
         jitter_cap = min(2.5, max(0.5, scan_interval * 0.1))
@@ -587,9 +597,11 @@ class MarstekDataUpdateCoordinator(DataUpdateCoordinator):
                 except Exception as err:
                     _LOGGER.debug("Failed to get PV status: %s", err)
 
-            # Medium priority - every 10th update (5 min)
+            # Medium priority - configurable interval (default 5 min)
             # Bat.GetStatus - slower-changing data
-            run_medium = self.update_count == 1 or self.update_count % UPDATE_INTERVAL_MEDIUM == 0
+            _scan_secs = self.update_interval.total_seconds()
+            _medium_cycle = max(1, round(self.medium_interval_secs / _scan_secs))
+            run_medium = self.update_count == 1 or self.update_count % _medium_cycle == 0
             if is_first_update and not had_success:
                 run_medium = False
             if run_medium:
@@ -634,9 +646,10 @@ class MarstekDataUpdateCoordinator(DataUpdateCoordinator):
                 except Exception as err:
                     _LOGGER.debug("Failed to get mode status: %s", err)
 
-            # Low priority - every 100th update (~50 min)
+            # Low priority - configurable interval (default ~20 min)
             # Device, WiFi, BLE - static/diagnostic data
-            run_slow = self.update_count % UPDATE_INTERVAL_SLOW == 0
+            _slow_cycle = max(1, round(self.slow_interval_secs / _scan_secs))
+            run_slow = self.update_count % _slow_cycle == 0
             if is_first_update and not had_success:
                 run_slow = False
             if run_slow:

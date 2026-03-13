@@ -17,6 +17,8 @@ from .const import (
     DOD_DEFAULT,
     DOMAIN,
     STALE_DATA_THRESHOLD,
+    UPDATE_INTERVAL_MEDIUM_SECS,
+    UPDATE_INTERVAL_SLOW_SECS,
 )
 from .coordinator import MarstekDataUpdateCoordinator, MarstekMultiDeviceCoordinator
 from .services import async_setup_services, async_unload_services
@@ -36,6 +38,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     command_max_attempts = entry.options.get("command_max_attempts", COMMAND_MAX_ATTEMPTS)
     stale_data_threshold = entry.options.get("stale_data_threshold", STALE_DATA_THRESHOLD)
     dod_percent = entry.options.get("dod_percent", DOD_DEFAULT)
+    medium_interval_secs = entry.options.get("medium_interval_secs", UPDATE_INTERVAL_MEDIUM_SECS)
+    slow_interval_secs = entry.options.get("slow_interval_secs", UPDATE_INTERVAL_SLOW_SECS)
 
     # Check if this is a multi-device or single-device entry
     if "devices" in entry.data:
@@ -52,6 +56,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             command_max_attempts=command_max_attempts,
             stale_data_threshold=stale_data_threshold,
             dod_percent=dod_percent,
+            medium_interval_secs=medium_interval_secs,
+            slow_interval_secs=slow_interval_secs,
         )
 
         # Set up device coordinators
@@ -94,6 +100,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             command_max_attempts=command_max_attempts,
             stale_data_threshold=stale_data_threshold,
             dod_percent=dod_percent,
+            medium_interval_secs=medium_interval_secs,
+            slow_interval_secs=slow_interval_secs,
         )
 
         # Fetch initial data

@@ -12,10 +12,9 @@ DEFAULT_SCAN_INTERVAL: Final = 30  # Base interval in seconds
 DISCOVERY_TIMEOUT: Final = 9  # Discovery window in seconds
 DISCOVERY_BROADCAST_INTERVAL: Final = 2  # Broadcast every 2 seconds during discovery
 
-# Update intervals (in multiples of base interval)
-UPDATE_INTERVAL_FAST: Final = 1  # ES, EM status — every scan (default 30 s)
-UPDATE_INTERVAL_MEDIUM: Final = 10  # Bat, PV — every 10th scan (default 5 min)
-UPDATE_INTERVAL_SLOW: Final = 40  # Device, WiFi, BLE — every 40th scan (default ~20 min)
+# Update intervals in seconds (used to compute per-tier cycle counts at runtime)
+UPDATE_INTERVAL_MEDIUM_SECS: Final = 300   # Bat status — default 5 min
+UPDATE_INTERVAL_SLOW_SECS: Final = 1200    # Device, WiFi, BLE — default ~20 min
 
 # Communication timeouts
 COMMAND_TIMEOUT: Final = 2  # Timeout for commands in seconds

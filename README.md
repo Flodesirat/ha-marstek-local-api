@@ -42,7 +42,7 @@ Or:
 3. If discovery misses a unit, choose **Manual IP entry** and provide the host/port you noted earlier.
 
 After setup you can return to **Settings → Devices & Services → Marstek Local API → Configure** to:
-- Rename devices, add/remove batteries, or tune communication parameters (scan interval, command timeout, max retries, stale-data threshold).
+- Rename devices, add/remove batteries, or tune communication parameters (fast scan interval, medium/slow update intervals, command timeout, max retries, stale-data threshold).
 - Trigger discovery again when new batteries join the network.
 
 > **Important:** If you want all batteries to live under the same config entry (and keep the virtual **Marstek System** device), use the integration’s **Configure** button to add/remove batteries. The default Home Assistant “Add Device” button creates a brand-new config entry and a separate virtual system device.
@@ -96,7 +96,7 @@ After setup you can return to **Settings → Devices & Services → Marstek Loca
 | **Device info** | `device_model`, `firmware_version`, `ble_mac`, `wifi_mac`, `device_ip` | text | Identification fields | Slow | ~20 min |
 | **Diagnostics** | `last_message_received` | seconds | Time since the last successful poll | Fast | 30 s |
 
-**Update tiers** (with the default 30 s scan interval): **Fast** = every scan (30 s) — `ES.GetStatus`, `EM.GetStatus`, `PV.GetStatus` (Venus A/D); **Medium** = every 10th scan (5 min) — `Bat.GetStatus`, `ES.GetMode`; **Slow** = every 40th scan (~20 min) — `Marstek.GetDevice`, `Wifi.GetStatus`, `BLE.GetStatus`. The scan interval and all tiers scale proportionally when you change it in the integration options.
+**Update tiers** (defaults): **Fast** = every scan (30 s) — `ES.GetStatus`, `EM.GetStatus`, `PV.GetStatus` (Venus A/D); **Medium** = every 5 min — `Bat.GetStatus`, `ES.GetMode`; **Slow** = every 20 min — `Marstek.GetDevice`, `Wifi.GetStatus`, `BLE.GetStatus`. The fast scan interval, medium interval, and slow interval are each independently configurable in seconds via the integration options.
 
 Every sensor listed above also exists in an aggregated form under the **Marstek System** device whenever you manage multiple batteries together (prefixed with `system_`).
 

@@ -49,16 +49,20 @@
         "title": "Update communication timings and thresholds",
         "description": "Adjust how frequently Home Assistant polls the device and how it handles communication issues.",
         "data": {
-          "scan_interval": "Fast Update Interval (seconds)",
+          "scan_interval": "Fast update interval (seconds)",
           "command_timeout": "Command timeout (seconds)",
           "command_max_attempts": "Max retry attempts",
-          "stale_data_threshold": "Stale data threshold (seconds)"
+          "stale_data_threshold": "Stale data threshold (seconds)",
+          "medium_interval_secs": "Medium update interval (seconds)",
+          "slow_interval_secs": "Slow update interval (seconds)"
         },
         "data_description": {
-          "scan_interval": "Base polling interval. Medium tier = Fast × 10, Slow tier = Fast × 100.",
+          "scan_interval": "Base polling interval for real-time sensors (ES, EM, PV).",
           "command_timeout": "How long to wait for a device response before retrying.",
           "command_max_attempts": "How many times to retry a command before giving up.",
-          "stale_data_threshold": "How old data can be (in seconds) before entities show as unavailable."
+          "stale_data_threshold": "How old data can be (in seconds) before entities show as unavailable.",
+          "medium_interval_secs": "How often battery status and operating mode are polled (Bat.GetStatus, ES.GetMode). Default: 300 s (5 min).",
+          "slow_interval_secs": "How often static device info is polled (device, Wi-Fi, BLE). Default: 1200 s (20 min)."
         }
       },
       "battery_settings": {

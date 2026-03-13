@@ -28,6 +28,8 @@ from .const import (
     DOD_DEFAULT,
     DOMAIN,
     STALE_DATA_THRESHOLD,
+    UPDATE_INTERVAL_MEDIUM_SECS,
+    UPDATE_INTERVAL_SLOW_SECS,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -441,6 +443,14 @@ class OptionsFlow(config_entries.OptionsFlow):
                         "stale_data_threshold",
                         default=opts.get("stale_data_threshold", STALE_DATA_THRESHOLD),
                     ): NumberSelector(NumberSelectorConfig(min=60, max=3600, mode=NumberSelectorMode.BOX)),
+                    vol.Optional(
+                        "medium_interval_secs",
+                        default=opts.get("medium_interval_secs", UPDATE_INTERVAL_MEDIUM_SECS),
+                    ): NumberSelector(NumberSelectorConfig(min=60, max=3600, mode=NumberSelectorMode.BOX)),
+                    vol.Optional(
+                        "slow_interval_secs",
+                        default=opts.get("slow_interval_secs", UPDATE_INTERVAL_SLOW_SECS),
+                    ): NumberSelector(NumberSelectorConfig(min=300, max=86400, mode=NumberSelectorMode.BOX)),
                 }
             ),
         )

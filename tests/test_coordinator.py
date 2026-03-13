@@ -66,6 +66,9 @@ def _make_coord(**overrides):
     coord.last_message_timestamp = None
     coord._last_update_start = None
     coord.dod_percent = DOD_DEFAULT
+    # update_interval=10s → medium_cycle=10 (100/10), slow_cycle=40 (400/10)
+    coord.medium_interval_secs = 100
+    coord.slow_interval_secs = 400
     coord.stale_data_threshold = 300
     coord.static_categories = {"device", "wifi", "ble", "mode", "_diagnostic", "aggregates"}
     coord.staleness_threshold = 10
@@ -543,7 +546,7 @@ class TestAsyncUpdateData:
         assert "battery" in data
 
     async def test_non_first_update_slow_tier(self):
-        """Non-first update at count=40: slow tier runs (device/wifi/ble/mode)."""
+        """Non-first update at count=40 (slow_cycle=40 with 10s interval): slow tier runs."""
         coord = _make_coord(data={"old": "data"}, update_count=40)
         coord.api.get_device_info = AsyncMock(return_value={"ver": 147, "device": DEVICE_MODEL_VENUS_A})
         coord.api.get_wifi_status = AsyncMock(return_value={"ssid": "MyWifi"})
