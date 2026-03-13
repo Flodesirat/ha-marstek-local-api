@@ -486,7 +486,7 @@ class MarstekDataUpdateCoordinator(DataUpdateCoordinator):
         }
         return diag
 
-    async def _async_update_data(self) -> dict[str, Any]:  # pylint: disable=too-many-locals
+    async def _async_update_data(self) -> dict[str, Any]:  # pylint: disable=too-many-locals,too-many-statements
         """Fetch data from API with tiered polling strategy."""
         try:
             update_started = time.time()
