@@ -552,7 +552,7 @@ class MarstekDataUpdateCoordinator(DataUpdateCoordinator):
                 self.category_last_updated["es"] = time.time()
                 had_success = True
 
-            # High priority (continued) - every update (10s)
+            # High priority (continued) - every update
             # EM.GetStatus for real-time CT/grid data
             try:
                 await asyncio.sleep(_command_delay())  # Delay between API calls
@@ -564,8 +564,31 @@ class MarstekDataUpdateCoordinator(DataUpdateCoordinator):
             except Exception as err:
                 _LOGGER.debug("Failed to get EM status: %s", err)
 
-            # Medium priority - every 6th update (60s)
-            # Bat.GetStatus, PV - slower-changing data
+            # High priority (continued) - PV.GetStatus for Venus A / D only
+            # Use normalized base_model to handle devices reporting "Venus A" (with space)
+            if self.compatibility.base_model in (DEVICE_MODEL_VENUS_D, DEVICE_MODEL_VENUS_A):
+                try:
+                    await asyncio.sleep(_command_delay())  # Delay between API calls
+                    pv_status = await self.api.get_pv_status(**_command_kwargs())
+                    if pv_status:
+                        if "pv_power" in pv_status:
+                            pv_status["pv_power"] = self.compatibility.scale_value(
+                                pv_status["pv_power"], "pv_power"
+                            )
+                        # Scale per-channel power (same divisor as pv_power)
+                        for ch in (1, 2, 3, 4):
+                            if f"pv{ch}_power" in pv_status:
+                                pv_status[f"pv{ch}_power"] = self.compatibility.scale_value(
+                                    pv_status[f"pv{ch}_power"], "pv_power"
+                                )
+                        data["pv"] = pv_status
+                        self.category_last_updated["pv"] = time.time()
+                        had_success = True
+                except Exception as err:
+                    _LOGGER.debug("Failed to get PV status: %s", err)
+
+            # Medium priority - every 10th update (5 min)
+            # Bat.GetStatus - slower-changing data
             run_medium = self.update_count == 1 or self.update_count % UPDATE_INTERVAL_MEDIUM == 0
             if is_first_update and not had_success:
                 run_medium = False
@@ -599,31 +622,20 @@ class MarstekDataUpdateCoordinator(DataUpdateCoordinator):
                     self.category_last_updated["battery"] = time.time()
                     had_success = True
 
-                # Only query PV for Venus D and Venus A
-                # Use normalized base_model to handle devices reporting "Venus A" (with space)
-                if self.compatibility.base_model in (DEVICE_MODEL_VENUS_D, DEVICE_MODEL_VENUS_A):
-                    try:
-                        await asyncio.sleep(_command_delay())  # Delay between API calls
-                        pv_status = await self.api.get_pv_status(**_command_kwargs())
-                        if pv_status:
-                            if "pv_power" in pv_status:
-                                pv_status["pv_power"] = self.compatibility.scale_value(
-                                    pv_status["pv_power"], "pv_power"
-                                )
-                            # Scale per-channel power (same divisor as pv_power)
-                            for ch in (1, 2, 3, 4):
-                                if f"pv{ch}_power" in pv_status:
-                                    pv_status[f"pv{ch}_power"] = self.compatibility.scale_value(
-                                        pv_status[f"pv{ch}_power"], "pv_power"
-                                    )
-                            data["pv"] = pv_status
-                            self.category_last_updated["pv"] = time.time()
-                            had_success = True
-                    except Exception as err:
-                        _LOGGER.debug("Failed to get PV status: %s", err)
+            # Medium priority (continued) - ES.GetMode
+            if run_medium:
+                try:
+                    await asyncio.sleep(_command_delay())  # Delay between API calls
+                    mode_status = await self.api.get_es_mode(**_command_kwargs())
+                    if mode_status and "mode" in mode_status:
+                        data["mode"] = {"mode": mode_status["mode"]}
+                        self.category_last_updated["mode"] = time.time()
+                        had_success = True
+                except Exception as err:
+                    _LOGGER.debug("Failed to get mode status: %s", err)
 
-            # Low priority - every 60th update (600s)
-            # Device, WiFi, BLE, Mode - static/diagnostic data
+            # Low priority - every 100th update (~50 min)
+            # Device, WiFi, BLE - static/diagnostic data
             run_slow = self.update_count % UPDATE_INTERVAL_SLOW == 0
             if is_first_update and not had_success:
                 run_slow = False
@@ -658,16 +670,6 @@ class MarstekDataUpdateCoordinator(DataUpdateCoordinator):
                         had_success = True
                 except Exception as err:
                     _LOGGER.debug("Failed to get BLE status: %s", err)
-
-                try:
-                    await asyncio.sleep(_command_delay())  # Delay between API calls
-                    mode_status = await self.api.get_es_mode(**_command_kwargs())
-                    if mode_status and "mode" in mode_status:
-                        data["mode"] = {"mode": mode_status["mode"]}
-                        self.category_last_updated["mode"] = time.time()
-                        had_success = True
-                except Exception as err:
-                    _LOGGER.debug("Failed to get mode status: %s", err)
 
             # Increment update counter
             self.update_count += 1

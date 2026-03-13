@@ -543,8 +543,8 @@ class TestAsyncUpdateData:
         assert "battery" in data
 
     async def test_non_first_update_slow_tier(self):
-        """Non-first update at count=100: slow tier runs (device/wifi/ble/mode)."""
-        coord = _make_coord(data={"old": "data"}, update_count=100)
+        """Non-first update at count=40: slow tier runs (device/wifi/ble/mode)."""
+        coord = _make_coord(data={"old": "data"}, update_count=40)
         coord.api.get_device_info = AsyncMock(return_value={"ver": 147, "device": DEVICE_MODEL_VENUS_A})
         coord.api.get_wifi_status = AsyncMock(return_value={"ssid": "MyWifi"})
         coord.api.get_ble_status = AsyncMock(return_value={"state": "connected"})
@@ -557,7 +557,7 @@ class TestAsyncUpdateData:
 
     async def test_slow_tier_mode_without_mode_key(self):
         """mode_status returned but lacks 'mode' key → mode not stored."""
-        coord = _make_coord(data={"old": "data"}, update_count=100)
+        coord = _make_coord(data={"old": "data"}, update_count=40)
         coord.api.get_es_mode = AsyncMock(return_value={"other_key": "value"})
         data = await coord._async_update_data()
         assert "mode" not in data

@@ -72,27 +72,31 @@ After setup you can return to **Settings → Devices & Services → Marstek Loca
 |  | `battery_capacity` | kWh | Remaining capacity | Medium | 5 min |
 |  | `battery_rated_capacity` | kWh | Rated pack capacity | Medium | 5 min |
 |  | `battery_available_capacity` | kWh | Estimated energy still available before full charge | Medium | 5 min |
-|  | `battery_voltage` | V | Pack voltage | Medium | 5 min |
-|  | `battery_current` | A | Pack current (positive = charge) | Medium | 5 min |
-| **Energy system (ES)** | `battery_power` | W | Pack power (positive = charge) | Fast | 30 s |
-|  | `battery_power_in` / `battery_power_out` | W | Split charge/discharge power | Fast | 30 s |
-|  | `battery_state` | text | `charging` / `discharging` / `idle` | Fast | 30 s |
-|  | `grid_power` | W | Grid import/export (positive = import) | Fast | 30 s |
+|  | `battery_usable_capacity` | kWh | Usable capacity (rated × DOD%) | Medium | 5 min |
+|  | `battery_available_until_dod` | kWh | Energy available before DOD limit | Medium | 5 min |
+|  | `battery_usable_soc` | % | SOC relative to usable window | Medium | 5 min |
+| **Energy system (ES)** | `battery_state` | text | `charging` / `discharging` / `idle` | Fast | 30 s |
+|  | `power_grid_in` / `power_grid_out` | W | Grid import / export power | Fast | 30 s |
+|  | `grid_power` | W | Grid power (signed) | Fast | 30 s |
 |  | `offgrid_power` | W | Off-grid load | Fast | 30 s |
 |  | `pv_power_es` | W | Solar production reported via ES | Fast | 30 s |
 |  | `total_pv_energy` | kWh | Lifetime PV energy | Fast | 30 s |
 |  | `total_grid_import` / `total_grid_export` | kWh | Lifetime grid counters | Fast | 30 s |
 |  | `total_load_energy` | kWh | Lifetime load energy | Fast | 30 s |
+|  | `battery_time_to_full` / `battery_time_to_dod` | min | Estimated time to full charge / DOD limit | Fast | 30 s |
 | **Energy meter / CT** | `ct_phase_a_power`, `ct_phase_b_power`, `ct_phase_c_power` | W | Per-phase measurements (if CTs installed) | Fast | 30 s |
 |  | `ct_total_power` | W | CT aggregate | Fast | 30 s |
-| **Mode** | `operating_mode` | text | Current mode (read-only sensor) | Slow | ~50 min |
-| **PV (Venus A / D only)** | `pv_power`, `pv_voltage`, `pv_current` | W / V / A | MPPT telemetry | Medium | 5 min |
-| **Network** | `wifi_rssi` | dBm | Wi-Fi signal | Slow | ~50 min |
-|  | `wifi_ssid`, `wifi_ip`, `wifi_gateway`, `wifi_subnet`, `wifi_dns` | text | Wi-Fi configuration | Slow | ~50 min |
-| **Device info** | `device_model`, `firmware_version`, `ble_mac`, `wifi_mac`, `device_ip` | text | Identification fields | Slow | ~50 min |
+| **Mode** | `operating_mode` | text | Current mode (read-only sensor) | Medium | 5 min |
+| **PV (Venus A / D only)** | `pv1_power`…`pv4_power` | W | Per-MPPT-channel power | Fast | 30 s |
+|  | `pv1_voltage`…`pv4_voltage` | V | Per-MPPT-channel voltage | Fast | 30 s |
+|  | `pv1_current`…`pv4_current` | A | Per-MPPT-channel current | Fast | 30 s |
+|  | `pv1_state`…`pv4_state` | — | Per-MPPT-channel state | Fast | 30 s |
+| **Network** | `wifi_rssi` | dBm | Wi-Fi signal | Slow | ~20 min |
+|  | `wifi_ssid`, `wifi_ip`, `wifi_gateway`, `wifi_subnet`, `wifi_dns` | text | Wi-Fi configuration | Slow | ~20 min |
+| **Device info** | `device_model`, `firmware_version`, `ble_mac`, `wifi_mac`, `device_ip` | text | Identification fields | Slow | ~20 min |
 | **Diagnostics** | `last_message_received` | seconds | Time since the last successful poll | Fast | 30 s |
 
-**Update tiers** (with the default 30 s scan interval): **Fast** = every scan (30 s) — `ES.GetStatus`, `EM.GetStatus`; **Medium** = every 10th scan (5 min) — `Bat.GetStatus`, `PV.GetStatus`; **Slow** = every 100th scan (~50 min) — `Marstek.GetDevice`, `Wifi.GetStatus`, `BLE.GetStatus`, `ES.GetMode`. The scan interval and all tiers scale proportionally when you change it in the integration options.
+**Update tiers** (with the default 30 s scan interval): **Fast** = every scan (30 s) — `ES.GetStatus`, `EM.GetStatus`, `PV.GetStatus` (Venus A/D); **Medium** = every 10th scan (5 min) — `Bat.GetStatus`, `ES.GetMode`; **Slow** = every 40th scan (~20 min) — `Marstek.GetDevice`, `Wifi.GetStatus`, `BLE.GetStatus`. The scan interval and all tiers scale proportionally when you change it in the integration options.
 
 Every sensor listed above also exists in an aggregated form under the **Marstek System** device whenever you manage multiple batteries together (prefixed with `system_`).
 
