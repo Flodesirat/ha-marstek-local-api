@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import asyncio
+from dataclasses import dataclass
 from datetime import timedelta
 import logging
 import random
@@ -31,6 +32,18 @@ from .const import (
 _LOGGER = logging.getLogger(__name__)
 
 
+@dataclass
+class CoordinatorConfig:
+    """Operational configuration shared between coordinators."""
+
+    command_timeout: int = COMMAND_TIMEOUT
+    command_max_attempts: int = COMMAND_MAX_ATTEMPTS
+    stale_data_threshold: int = STALE_DATA_THRESHOLD
+    dod_percent: int = DOD_DEFAULT
+    medium_interval_secs: int = UPDATE_INTERVAL_MEDIUM_SECS
+    slow_interval_secs: int = UPDATE_INTERVAL_SLOW_SECS
+
+
 class MarstekMultiDeviceCoordinator(DataUpdateCoordinator):
     """Class to manage fetching data from multiple Marstek devices."""
 
@@ -40,24 +53,21 @@ class MarstekMultiDeviceCoordinator(DataUpdateCoordinator):
         devices: list[dict[str, Any]],
         scan_interval: int = DEFAULT_SCAN_INTERVAL,
         config_entry: ConfigEntry | None = None,
-        command_timeout: int = COMMAND_TIMEOUT,
-        command_max_attempts: int = COMMAND_MAX_ATTEMPTS,
-        stale_data_threshold: int = STALE_DATA_THRESHOLD,
-        dod_percent: int = DOD_DEFAULT,
-        medium_interval_secs: int = UPDATE_INTERVAL_MEDIUM_SECS,
-        slow_interval_secs: int = UPDATE_INTERVAL_SLOW_SECS,
+        config: CoordinatorConfig | None = None,
     ) -> None:
         """Initialize the multi-device coordinator."""
+        cfg = config or CoordinatorConfig()
         self.devices = devices
         self.device_coordinators: dict[str, MarstekDataUpdateCoordinator] = {}
         self.update_count = 1
         self._config_entry = config_entry
-        self.command_timeout = command_timeout
-        self.command_max_attempts = command_max_attempts
-        self.stale_data_threshold = stale_data_threshold
-        self.dod_percent = dod_percent
-        self.medium_interval_secs = medium_interval_secs
-        self.slow_interval_secs = slow_interval_secs
+        self._coord_config = cfg
+        self.command_timeout = cfg.command_timeout
+        self.command_max_attempts = cfg.command_max_attempts
+        self.stale_data_threshold = cfg.stale_data_threshold
+        self.dod_percent = cfg.dod_percent
+        self.medium_interval_secs = cfg.medium_interval_secs
+        self.slow_interval_secs = cfg.slow_interval_secs
 
         super().__init__(
             hass,
@@ -99,12 +109,7 @@ class MarstekMultiDeviceCoordinator(DataUpdateCoordinator):
                 scan_interval=self.update_interval.total_seconds(),
                 config_entry=self._config_entry,
                 device_mac=mac,
-                command_timeout=self.command_timeout,
-                command_max_attempts=self.command_max_attempts,
-                stale_data_threshold=self.stale_data_threshold,
-                dod_percent=self.dod_percent,
-                medium_interval_secs=self.medium_interval_secs,
-                slow_interval_secs=self.slow_interval_secs,
+                config=self._coord_config,
             )
 
             self.device_coordinators[mac] = coordinator
@@ -311,23 +316,19 @@ class MarstekDataUpdateCoordinator(DataUpdateCoordinator):
         scan_interval: int = DEFAULT_SCAN_INTERVAL,
         config_entry: ConfigEntry | None = None,
         device_mac: str | None = None,
-        command_timeout: int = COMMAND_TIMEOUT,
-        command_max_attempts: int = COMMAND_MAX_ATTEMPTS,
-        stale_data_threshold: int = STALE_DATA_THRESHOLD,
-        dod_percent: int = DOD_DEFAULT,
-        medium_interval_secs: int = UPDATE_INTERVAL_MEDIUM_SECS,
-        slow_interval_secs: int = UPDATE_INTERVAL_SLOW_SECS,
+        config: CoordinatorConfig | None = None,
     ) -> None:
         """Initialize the coordinator."""
+        cfg = config or CoordinatorConfig()
         self.api = api
         self.firmware_version = firmware_version
         self.device_model = device_model
-        self.command_timeout = command_timeout
-        self.command_max_attempts = command_max_attempts
-        self.stale_data_threshold = stale_data_threshold
-        self.dod_percent = dod_percent
-        self.medium_interval_secs = medium_interval_secs
-        self.slow_interval_secs = slow_interval_secs
+        self.command_timeout = cfg.command_timeout
+        self.command_max_attempts = cfg.command_max_attempts
+        self.stale_data_threshold = cfg.stale_data_threshold
+        self.dod_percent = cfg.dod_percent
+        self.medium_interval_secs = cfg.medium_interval_secs
+        self.slow_interval_secs = cfg.slow_interval_secs
         self.update_count = 1  # Start at 1 to skip slow updates on first refresh
         self.last_message_timestamp: float | None = None
         jitter_cap = min(2.5, max(0.5, scan_interval * 0.1))
@@ -485,7 +486,7 @@ class MarstekDataUpdateCoordinator(DataUpdateCoordinator):
         }
         return diag
 
-    async def _async_update_data(self) -> dict[str, Any]:
+    async def _async_update_data(self) -> dict[str, Any]:  # pylint: disable=too-many-locals
         """Fetch data from API with tiered polling strategy."""
         try:
             update_started = time.time()

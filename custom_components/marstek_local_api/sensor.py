@@ -96,27 +96,26 @@ def _time_to_full(data: dict) -> float | None:
     energy_before_full_kwh = _available_capacity_kwh(data)
     es = data.get("es", {})
     ongrid_power_w = es.get("ongrid_power", 0) or 0
-    
+
     if ongrid_power_w >= 0:
         return None
-    
+
     try:
         charge_power_w = -ongrid_power_w
         return energy_before_full_kwh*1000/charge_power_w * 60
     except (TypeError, ValueError, ZeroDivisionError):
         return None
-    
+
 
 def _time_to_dod(data: dict) -> float | None:
     """Estimated minutes until battery hits DOD limit (only when discharging)."""
-    
     energy_before_dod_wh = _available_until_dod(data)
     es = data.get("es", {})
     ongrid_power_w = es.get("ongrid_power", 0) or 0
-    
+
     if ongrid_power_w <= 0:
         return None
-    
+
     try:
         discharge_power_w = ongrid_power_w
         return energy_before_dod_wh/discharge_power_w * 60

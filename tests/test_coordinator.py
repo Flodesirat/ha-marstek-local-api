@@ -16,6 +16,7 @@ from conftest import _load_integration_module
 _coordinator_mod = _load_integration_module("coordinator")
 MarstekDataUpdateCoordinator = _coordinator_mod.MarstekDataUpdateCoordinator
 MarstekMultiDeviceCoordinator = _coordinator_mod.MarstekMultiDeviceCoordinator
+CoordinatorConfig = _coordinator_mod.CoordinatorConfig
 
 _api_mod = _load_integration_module("api")
 MarstekAPIError = _api_mod.MarstekAPIError
@@ -115,6 +116,7 @@ class TestMarstekDataUpdateCoordinatorInit:
         hass = MagicMock()
         api = _make_api()
         entry = MagicMock()
+        cfg = CoordinatorConfig(command_timeout=5, command_max_attempts=5, stale_data_threshold=600, dod_percent=70)
         coord = MarstekDataUpdateCoordinator(
             hass, api,
             device_name="Test Device",
@@ -123,10 +125,7 @@ class TestMarstekDataUpdateCoordinatorInit:
             scan_interval=30,
             config_entry=entry,
             device_mac="aa:bb:cc:dd:ee:ff",
-            command_timeout=5,
-            command_max_attempts=5,
-            stale_data_threshold=600,
-            dod_percent=70,
+            config=cfg,
         )
         assert coord.firmware_version == 200
         assert coord.device_model == DEVICE_MODEL_VENUS_D
@@ -156,12 +155,12 @@ class TestMarstekMultiDeviceCoordinatorInit:
     def test_custom_params(self):
         hass = MagicMock()
         entry = MagicMock()
+        cfg = CoordinatorConfig(dod_percent=60, stale_data_threshold=120)
         coord = MarstekMultiDeviceCoordinator(
             hass, [],
             scan_interval=20,
             config_entry=entry,
-            dod_percent=60,
-            stale_data_threshold=120,
+            config=cfg,
         )
         assert coord.dod_percent == 60
         assert coord._config_entry is entry
