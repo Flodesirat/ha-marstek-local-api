@@ -145,7 +145,7 @@ SENSOR_TYPES: tuple[MarstekSensorEntityDescription, ...] = (
     # Battery sensors
     MarstekSensorEntityDescription(
         key="battery_soc",
-        name="State of charge",
+        name="Battery State of charge",
         native_unit_of_measurement=PERCENTAGE,
         device_class=SensorDeviceClass.BATTERY,
         state_class=SensorStateClass.MEASUREMENT,
@@ -163,7 +163,7 @@ SENSOR_TYPES: tuple[MarstekSensorEntityDescription, ...] = (
     ),
     MarstekSensorEntityDescription(
         key="battery_capacity",
-        name="Remaining capacity",
+        name="Battery Capacity Available before empty",
         native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
         device_class=SensorDeviceClass.ENERGY_STORAGE,
         state_class=SensorStateClass.MEASUREMENT,
@@ -172,7 +172,7 @@ SENSOR_TYPES: tuple[MarstekSensorEntityDescription, ...] = (
     ),
     MarstekSensorEntityDescription(
         key="battery_rated_capacity",
-        name="Rated capacity",
+        name="Battery Capacity Total",
         native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
         device_class=SensorDeviceClass.ENERGY_STORAGE,
         value_fn=lambda data: _wh_to_kwh(data.get("battery", {}).get("rated_capacity")),
@@ -210,7 +210,7 @@ SENSOR_TYPES: tuple[MarstekSensorEntityDescription, ...] = (
     ),
     MarstekSensorEntityDescription(
         key="battery_available_capacity",
-        name="Available capacity",
+        name="Battery Capacity Available Before Full",
         native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
         device_class=SensorDeviceClass.ENERGY_STORAGE,
         state_class=SensorStateClass.MEASUREMENT,
@@ -219,7 +219,7 @@ SENSOR_TYPES: tuple[MarstekSensorEntityDescription, ...] = (
     ),
     MarstekSensorEntityDescription(
         key="battery_usable_capacity",
-        name="Usable capacity (DOD)",
+        name="Battery Capacity Usable (DOD)",
         native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
         device_class=SensorDeviceClass.ENERGY_STORAGE,
         state_class=SensorStateClass.MEASUREMENT,
@@ -228,7 +228,7 @@ SENSOR_TYPES: tuple[MarstekSensorEntityDescription, ...] = (
     ),
     MarstekSensorEntityDescription(
         key="battery_available_until_dod",
-        name="Available energy before DOD",
+        name="Battery Capacity Available Before DOD",
         native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
         device_class=SensorDeviceClass.ENERGY_STORAGE,
         state_class=SensorStateClass.MEASUREMENT,
@@ -237,7 +237,7 @@ SENSOR_TYPES: tuple[MarstekSensorEntityDescription, ...] = (
     ),
     MarstekSensorEntityDescription(
         key="battery_usable_soc",
-        name="Usable state of charge",
+        name="Battery State of charge Usable",
         native_unit_of_measurement=PERCENTAGE,
         device_class=SensorDeviceClass.BATTERY,
         state_class=SensorStateClass.MEASUREMENT,
@@ -294,7 +294,7 @@ SENSOR_TYPES: tuple[MarstekSensorEntityDescription, ...] = (
     ),
     MarstekSensorEntityDescription(
         key="total_pv_energy",
-        name="Total solar energy",
+        name="Energy Total Solar",
         native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
         device_class=SensorDeviceClass.ENERGY,
         state_class=SensorStateClass.TOTAL_INCREASING,
@@ -303,7 +303,7 @@ SENSOR_TYPES: tuple[MarstekSensorEntityDescription, ...] = (
     ),
     MarstekSensorEntityDescription(
         key="total_grid_import",
-        name="Total grid import",
+        name="Energy Total Grid Import",
         native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
         device_class=SensorDeviceClass.ENERGY,
         state_class=SensorStateClass.TOTAL_INCREASING,
@@ -312,7 +312,7 @@ SENSOR_TYPES: tuple[MarstekSensorEntityDescription, ...] = (
     ),
     MarstekSensorEntityDescription(
         key="total_grid_export",
-        name="Total grid export",
+        name="Energy Total Grid Export",
         native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
         device_class=SensorDeviceClass.ENERGY,
         state_class=SensorStateClass.TOTAL_INCREASING,
@@ -321,7 +321,7 @@ SENSOR_TYPES: tuple[MarstekSensorEntityDescription, ...] = (
     ),
     MarstekSensorEntityDescription(
         key="total_load_energy",
-        name="Total load energy",
+        name="Energy Total Load",
         native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
         device_class=SensorDeviceClass.ENERGY,
         state_class=SensorStateClass.TOTAL_INCREASING,
@@ -586,7 +586,7 @@ AGGREGATE_SENSOR_TYPES: tuple[MarstekSensorEntityDescription, ...] = (
     ),
     MarstekSensorEntityDescription(
         key="system_usable_soc",
-        name="Usable state of charge",
+        name="Battery state of charge usable",
         native_unit_of_measurement=PERCENTAGE,
         device_class=SensorDeviceClass.BATTERY,
         state_class=SensorStateClass.MEASUREMENT,
