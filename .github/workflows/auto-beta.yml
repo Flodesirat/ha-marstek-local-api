@@ -23,13 +23,20 @@ jobs:
         id: version
         run: |
           current=$(jq -r '.version' custom_components/marstek_local_api/manifest.json)
-          # If version already has bN suffix, increment N. Otherwise append b1.
+          # If version already has bN suffix, increment N.
+          # Otherwise it's a stable release: increment the patch number and start at b1.
           if [[ "$current" =~ ^([0-9]+\.[0-9]+\.[0-9]+)b([0-9]+)$ ]]; then
             base="${BASH_REMATCH[1]}"
             beta="${BASH_REMATCH[2]}"
             next="${base}b$((beta + 1))"
+          elif [[ "$current" =~ ^([0-9]+)\.([0-9]+)\.([0-9]+)$ ]]; then
+            major="${BASH_REMATCH[1]}"
+            minor="${BASH_REMATCH[2]}"
+            patch="${BASH_REMATCH[3]}"
+            next="${major}.${minor}.$((patch + 1))b1"
           else
-            next="${current}b1"
+            echo "Unrecognised version format: $current" >&2
+            exit 1
           fi
           echo "version=$next" >> "$GITHUB_OUTPUT"
 
