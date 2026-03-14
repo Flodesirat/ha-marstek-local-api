@@ -1,0 +1,57 @@
+name: Auto Beta Release
+
+on:
+  workflow_run:
+    workflows: ["Tests"]
+    types: [completed]
+    branches: [master]
+
+jobs:
+  beta-release:
+    # Only run when tests passed (not on failure or cancellation)
+    if: github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Compute next beta version
+        id: version
+        run: |
+          current=$(jq -r '.version' custom_components/marstek_local_api/manifest.json)
+          # If version already has bN suffix, increment N. Otherwise append b1.
+          if [[ "$current" =~ ^([0-9]+\.[0-9]+\.[0-9]+)b([0-9]+)$ ]]; then
+            base="${BASH_REMATCH[1]}"
+            beta="${BASH_REMATCH[2]}"
+            next="${base}b$((beta + 1))"
+          else
+            next="${current}b1"
+          fi
+          echo "version=$next" >> "$GITHUB_OUTPUT"
+
+      - name: Update manifest version
+        run: |
+          jq --arg v "${{ steps.version.outputs.version }}" '.version = $v' \
+            custom_components/marstek_local_api/manifest.json > _tmp.json
+          mv _tmp.json custom_components/marstek_local_api/manifest.json
+
+      - name: Commit and tag
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add custom_components/marstek_local_api/manifest.json
+          git commit -m "Release ${{ steps.version.outputs.version }} [skip ci]"
+          git tag "v${{ steps.version.outputs.version }}"
+          git push
+          git push origin "v${{ steps.version.outputs.version }}"
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: "v${{ steps.version.outputs.version }}"
+          generate_release_notes: true
+          prerelease: true
