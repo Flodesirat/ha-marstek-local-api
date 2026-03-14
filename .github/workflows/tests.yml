@@ -28,7 +28,8 @@ jobs:
             --cov=custom_components/marstek_local_api \
             --cov-report=term-missing \
             --cov-report=html:coverage-report \
-            --cov-report=xml:coverage.xml
+            --cov-report=xml:coverage.xml \
+            --cov-fail-under=90
 
       - name: Run integration tests
         run: python -m pytest tests_integration/ -v --tb=short --junit-xml=report-integration.xml
