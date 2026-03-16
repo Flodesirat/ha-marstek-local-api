@@ -442,7 +442,7 @@ class OptionsFlow(config_entries.OptionsFlow):
                     vol.Optional(
                         "stale_data_threshold",
                         default=opts.get("stale_data_threshold", STALE_DATA_THRESHOLD),
-                    ): NumberSelector(NumberSelectorConfig(min=60, max=3600, mode=NumberSelectorMode.BOX)),
+                    ): NumberSelector(NumberSelectorConfig(min=60, max=86400, mode=NumberSelectorMode.BOX)),
                     vol.Optional(
                         "medium_interval_secs",
                         default=opts.get("medium_interval_secs", UPDATE_INTERVAL_MEDIUM_SECS),
