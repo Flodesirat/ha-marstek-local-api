@@ -79,7 +79,7 @@ async def test_ct_connected_state(hass, setup_integration):
 
 @pytest.mark.asyncio
 async def test_stale_data_goes_unknown(hass, setup_integration):
-    """Battery sensors return STATE_UNKNOWN after STALE_DATA_THRESHOLD (300 s) without updates."""
+    """Battery sensors return STATE_UNKNOWN after STALE_DATA_THRESHOLD (3600 s) without updates."""
     entry = setup_integration
     coordinator = hass.data[DOMAIN][entry.entry_id]["coordinator"]
 
@@ -88,8 +88,8 @@ async def test_stale_data_goes_unknown(hass, setup_integration):
     # Verify initial good state
     assert hass.states.get(entity_id).state == "20"
 
-    # Simulate battery data being 301 s old
-    coordinator.category_last_updated["battery"] = time.time() - 301
+    # Simulate battery data being older than STALE_DATA_THRESHOLD (3600 s)
+    coordinator.category_last_updated["battery"] = time.time() - 3601
 
     # Push a no-op data update so all listeners re-evaluate native_value
     coordinator.async_set_updated_data(coordinator.data)
