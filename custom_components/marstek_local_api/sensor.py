@@ -91,18 +91,28 @@ def _available_until_dod(data: dict) -> float | None:
         return None
 
 
+def _power_battery(data: dict) -> float | None:
+    """Estimated net battery power: PV - Grid - Off-grid (W).
+
+    Positive = charging, negative = discharging.
+    """
+    es = data.get("es")
+    if es is None:
+        return None
+    pv = (data.get("pv") or {}).get("pv_power", 0) or 0
+    grid = es.get("ongrid_power", 0) or 0
+    offgrid = es.get("offgrid_power", 0) or 0
+    return pv - grid - offgrid
+
+
 def _time_to_full(data: dict) -> float | None:
     """Estimated minutes until battery is full (only when charging)."""
     energy_before_full_kwh = _available_capacity_kwh(data)
-    es = data.get("es", {})
-    ongrid_power_w = es.get("ongrid_power", 0) or 0
-
-    if ongrid_power_w >= 0:
+    power_w = _power_battery(data)
+    if power_w is None or power_w <= 0:
         return None
-
     try:
-        charge_power_w = -ongrid_power_w
-        return energy_before_full_kwh*1000/charge_power_w * 60
+        return energy_before_full_kwh * 1000 / power_w * 60
     except (TypeError, ValueError, ZeroDivisionError):
         return None
 
@@ -110,15 +120,11 @@ def _time_to_full(data: dict) -> float | None:
 def _time_to_dod(data: dict) -> float | None:
     """Estimated minutes until battery hits DOD limit (only when discharging)."""
     energy_before_dod_wh = _available_until_dod(data)
-    es = data.get("es", {})
-    ongrid_power_w = es.get("ongrid_power", 0) or 0
-
-    if ongrid_power_w <= 0:
+    power_w = _power_battery(data)
+    if power_w is None or power_w >= 0:
         return None
-
     try:
-        discharge_power_w = ongrid_power_w
-        return energy_before_dod_wh/discharge_power_w * 60
+        return energy_before_dod_wh / (-power_w) * 60
     except (TypeError, ValueError, ZeroDivisionError):
         return None
 
@@ -201,10 +207,19 @@ SENSOR_TYPES: tuple[MarstekSensorEntityDescription, ...] = (
         key="battery_state",
         name="State",
         value_fn=lambda data: (
-            "charging" if (data.get("es", {}).get("ongrid_power", 0) or 0) < 0
-            else "discharging" if (data.get("es", {}).get("ongrid_power", 0) or 0) > 0
+            "charging" if (_power_battery(data) or 0) > 0
+            else "discharging" if (_power_battery(data) or 0) < 0
             else "idle"
         ),
+        category="es",
+    ),
+    MarstekSensorEntityDescription(
+        key="battery_power",
+        name="Power Battery",
+        native_unit_of_measurement=UnitOfPower.WATT,
+        device_class=SensorDeviceClass.POWER,
+        state_class=SensorStateClass.MEASUREMENT,
+        value_fn=_power_battery,
         category="es",
     ),
     MarstekSensorEntityDescription(

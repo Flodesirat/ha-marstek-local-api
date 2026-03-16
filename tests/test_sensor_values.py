@@ -198,23 +198,57 @@ class TestESSensorsAbsent:
         val = sensor_map["total_pv_energy"].value_fn(venus_a_coordinator_data)
         assert val is None
 
+    def test_battery_power_none_when_es_absent(self, sensor_map, venus_a_coordinator_data):
+        """No ES data → _power_battery returns None."""
+        val = sensor_map["battery_power"].value_fn(venus_a_coordinator_data)
+        assert val is None
+
 
 class TestESSensorsWithData:
     """Verify ES power/energy sensors with a synthetic ES payload."""
 
     @pytest.fixture
     def data_charging(self, venus_a_coordinator_data):
-        return {**venus_a_coordinator_data, "es": {"bat_power": 1200, "ongrid_power": -300, "offgrid_power": 0, "pv_power": 0, "total_pv_energy": 50000, "total_grid_input_energy": 20000, "total_grid_output_energy": 10000, "total_load_energy": 30000}}
+        # pv_power = pv1(200) + pv2(100) + pv3(0) + pv4(0) = 300 W
+        return {
+            **venus_a_coordinator_data,
+            "es": {"bat_power": 1200, "ongrid_power": -300, "offgrid_power": 0, "total_pv_energy": 50000, "total_grid_input_energy": 20000, "total_grid_output_energy": 10000, "total_load_energy": 30000},
+            "pv": {"pv1_power": 200, "pv2_power": 100, "pv3_power": 0, "pv4_power": 0, "pv_power": 300},
+        }
 
     @pytest.fixture
     def data_discharging(self, venus_a_coordinator_data):
-        return {**venus_a_coordinator_data, "es": {"bat_power": -800, "ongrid_power": 800}}
+        # No PV production, battery discharges to grid
+        return {
+            **venus_a_coordinator_data,
+            "es": {"bat_power": -800, "ongrid_power": 800},
+            "pv": {"pv1_power": 0, "pv2_power": 0, "pv3_power": 0, "pv4_power": 0, "pv_power": 0},
+        }
 
     def test_battery_state_charging(self, sensor_map, data_charging):
         assert sensor_map["battery_state"].value_fn(data_charging) == "charging"
 
     def test_battery_state_discharging(self, sensor_map, data_discharging):
         assert sensor_map["battery_state"].value_fn(data_discharging) == "discharging"
+
+    def test_battery_power_charging(self, sensor_map, data_charging):
+        """pv_power = pv1(200)+pv2(100) = 300; battery_power = 300 - ongrid(-300) - offgrid(0) = 600 W."""
+        assert sensor_map["battery_power"].value_fn(data_charging) == 600
+
+    def test_battery_power_discharging(self, sensor_map, data_discharging):
+        """pv_power = sum(pvX)=0; battery_power = 0 - ongrid(800) - offgrid(0) = -800 W."""
+        assert sensor_map["battery_power"].value_fn(data_discharging) == -800
+
+    def test_battery_power_pv_channel_sum(self, sensor_map, venus_a_coordinator_data):
+        """Verify battery_power uses pv_power = sum of pvX_power channels."""
+        # pv1=500, pv2=300, pv3=100, pv4=50 → pv_power=950; ongrid=200; offgrid=50
+        data = {
+            **venus_a_coordinator_data,
+            "es": {"ongrid_power": 200, "offgrid_power": 50},
+            "pv": {"pv1_power": 500, "pv2_power": 300, "pv3_power": 100, "pv4_power": 50, "pv_power": 950},
+        }
+        # battery_power = 950 - 200 - 50 = 700
+        assert sensor_map["battery_power"].value_fn(data) == 700
 
     def test_power_grid_in_charging(self, sensor_map, data_charging):
         """Importing from grid: ongrid_power=-300 → power_grid_in=max(0,300)=300."""

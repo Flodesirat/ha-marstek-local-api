@@ -101,26 +101,28 @@ class TestAggregatesSingleDevice:
 class TestAggregatesSingleDeviceCharging:
     @pytest.fixture
     def coordinator(self, venus_a_coordinator_data):
+        # power_battery = pv(1500) - ongrid(500) - offgrid(0) = 1000 W (charging)
         data = {
             **venus_a_coordinator_data,
             "es": {
                 "bat_power": 1200,
                 "ongrid_power": 500,
                 "offgrid_power": 0,
-                "pv_power": 1500,
                 "total_pv_energy": 10000,
                 "total_grid_input_energy": 5000,
                 "total_grid_output_energy": 2000,
                 "total_load_energy": 8000,
             },
+            "pv": {"pv_power": 1500},
         }
         return _make_multi_coordinator([data])
 
     def test_total_battery_power(self, coordinator):
-        assert coordinator._calculate_aggregates()["total_battery_power"] == 1200
+        # power_battery = 1500 - 500 - 0 = 1000
+        assert coordinator._calculate_aggregates()["total_battery_power"] == 1000
 
     def test_total_power_in(self, coordinator):
-        assert coordinator._calculate_aggregates()["total_power_in"] == 1200
+        assert coordinator._calculate_aggregates()["total_power_in"] == 1000
 
     def test_total_power_out(self, coordinator):
         assert coordinator._calculate_aggregates()["total_power_out"] == 0
@@ -154,7 +156,8 @@ class TestAggregatesSingleDeviceCharging:
 class TestAggregatesSingleDeviceDischarging:
     @pytest.fixture
     def coordinator(self, venus_a_coordinator_data):
-        data = {**venus_a_coordinator_data, "es": {"bat_power": -800}}
+        # power_battery = pv(0) - ongrid(800) - offgrid(0) = -800 W (discharging)
+        data = {**venus_a_coordinator_data, "es": {"bat_power": -800, "ongrid_power": 800, "offgrid_power": 0}}
         return _make_multi_coordinator([data])
 
     def test_total_battery_power(self, coordinator):
@@ -177,8 +180,9 @@ class TestAggregatesSingleDeviceDischarging:
 class TestAggregatesTwoDevicesBothCharging:
     @pytest.fixture
     def coordinator(self, venus_a_coordinator_data):
-        dev1 = {**venus_a_coordinator_data, "es": {"bat_power": 1000}, "battery": {"soc": 30, "rated_capacity": 4000, "bat_capacity": 1200}}
-        dev2 = {**venus_a_coordinator_data, "es": {"bat_power": 500}, "battery": {"soc": 60, "rated_capacity": 2000, "bat_capacity": 1200}}
+        # power_battery = pv - ongrid - offgrid: dev1=1000, dev2=500
+        dev1 = {**venus_a_coordinator_data, "es": {"bat_power": 1000, "ongrid_power": 0, "offgrid_power": 0}, "pv": {"pv_power": 1000}, "battery": {"soc": 30, "rated_capacity": 4000, "bat_capacity": 1200}}
+        dev2 = {**venus_a_coordinator_data, "es": {"bat_power": 500, "ongrid_power": 0, "offgrid_power": 0}, "pv": {"pv_power": 500}, "battery": {"soc": 60, "rated_capacity": 2000, "bat_capacity": 1200}}
         return _make_multi_coordinator([dev1, dev2])
 
     def test_total_battery_power(self, coordinator):
@@ -209,8 +213,9 @@ class TestAggregatesTwoDevicesBothCharging:
 class TestAggregatesTwoDevicesConflicting:
     @pytest.fixture
     def coordinator(self, venus_a_coordinator_data):
-        dev1 = {**venus_a_coordinator_data, "es": {"bat_power": 800}}
-        dev2 = {**venus_a_coordinator_data, "es": {"bat_power": -600}}
+        # dev1: pv(800) - ongrid(0) = +800; dev2: pv(0) - ongrid(600) = -600
+        dev1 = {**venus_a_coordinator_data, "es": {"bat_power": 800, "ongrid_power": 0, "offgrid_power": 0}, "pv": {"pv_power": 800}}
+        dev2 = {**venus_a_coordinator_data, "es": {"bat_power": -600, "ongrid_power": 600, "offgrid_power": 0}}
         return _make_multi_coordinator([dev1, dev2])
 
     def test_combined_state_conflicting(self, coordinator):
@@ -227,8 +232,9 @@ class TestAggregatesTwoDevicesConflicting:
 class TestAggregatesTwoDevicesPartlyCharging:
     @pytest.fixture
     def coordinator(self, venus_a_coordinator_data):
-        dev1 = {**venus_a_coordinator_data, "es": {"bat_power": 600}}
-        dev2 = {**venus_a_coordinator_data, "es": {"bat_power": 0}}
+        # dev1: pv(600) - ongrid(0) = +600; dev2: all zeros = 0
+        dev1 = {**venus_a_coordinator_data, "es": {"bat_power": 600, "ongrid_power": 0, "offgrid_power": 0}, "pv": {"pv_power": 600}}
+        dev2 = {**venus_a_coordinator_data, "es": {"bat_power": 0, "ongrid_power": 0, "offgrid_power": 0}}
         return _make_multi_coordinator([dev1, dev2])
 
     def test_combined_state_partly_charging(self, coordinator):
@@ -242,8 +248,9 @@ class TestAggregatesTwoDevicesPartlyCharging:
 class TestAggregatesTwoDevicesPartlyDischarging:
     @pytest.fixture
     def coordinator(self, venus_a_coordinator_data):
-        dev1 = {**venus_a_coordinator_data, "es": {"bat_power": -500}}
-        dev2 = {**venus_a_coordinator_data, "es": {"bat_power": 0}}
+        # dev1: pv(0) - ongrid(500) = -500; dev2: all zeros = 0
+        dev1 = {**venus_a_coordinator_data, "es": {"bat_power": -500, "ongrid_power": 500, "offgrid_power": 0}}
+        dev2 = {**venus_a_coordinator_data, "es": {"bat_power": 0, "ongrid_power": 0, "offgrid_power": 0}}
         return _make_multi_coordinator([dev1, dev2])
 
     def test_combined_state_partly_discharging(self, coordinator):

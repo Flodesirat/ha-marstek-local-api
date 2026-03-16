@@ -36,6 +36,7 @@ _available_until_dod = _sensor_mod._available_until_dod
 _time_to_full = _sensor_mod._time_to_full
 _time_to_dod = _sensor_mod._time_to_dod
 _usable_soc = _sensor_mod._usable_soc
+_power_battery = _sensor_mod._power_battery
 
 
 # ---------------------------------------------------------------------------
@@ -111,6 +112,48 @@ class TestHelperExceptionBranches:
     def test_usable_soc_invalid_soc_returns_none(self):
         data = {"battery": {"soc": "bad"}, "_config": {"dod_percent": 80}}
         assert _usable_soc(data) is None
+
+
+# ---------------------------------------------------------------------------
+# _power_battery helper
+# ---------------------------------------------------------------------------
+
+class TestPowerBattery:
+    """Unit tests for _power_battery(data) = pv_power - ongrid_power - offgrid_power."""
+
+    def test_no_es_returns_none(self):
+        assert _power_battery({}) is None
+        assert _power_battery({"battery": {"soc": 80}}) is None
+
+    def test_all_zero_returns_zero(self):
+        data = {"es": {"pv_power": 0, "ongrid_power": 0, "offgrid_power": 0}}
+        assert _power_battery(data) == 0
+
+    def test_pv_only_charging(self):
+        """PV=500 (from pv dict), grid=0, offgrid=0 → battery power = +500 (charging)."""
+        data = {"es": {"ongrid_power": 0, "offgrid_power": 0}, "pv": {"pv_power": 500}}
+        assert _power_battery(data) == 500
+
+    def test_grid_export_discharging(self):
+        """PV=0, ongrid=800, offgrid=0 → battery power = -800 (discharging)."""
+        data = {"es": {"ongrid_power": 800, "offgrid_power": 0}}
+        assert _power_battery(data) == -800
+
+    def test_pv_minus_grid_minus_offgrid(self):
+        """PV=1500, ongrid=500, offgrid=200 → 1500 - 500 - 200 = 800."""
+        data = {"es": {"ongrid_power": 500, "offgrid_power": 200}, "pv": {"pv_power": 1500}}
+        assert _power_battery(data) == 800
+
+    def test_missing_fields_default_zero(self):
+        """Missing pv/grid/offgrid keys default to 0."""
+        assert _power_battery({"es": {}}) == 0
+        assert _power_battery({"es": {}, "pv": {"pv_power": 300}}) == 300
+        assert _power_battery({"es": {"ongrid_power": 100}}) == -100
+
+    def test_none_field_values_treated_as_zero(self):
+        """None values for fields are treated as 0."""
+        data = {"es": {"ongrid_power": None, "offgrid_power": None}, "pv": {"pv_power": None}}
+        assert _power_battery(data) == 0
 
 
 # ---------------------------------------------------------------------------

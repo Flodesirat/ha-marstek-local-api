@@ -137,20 +137,16 @@ class MarstekMultiDeviceCoordinator(DataUpdateCoordinator):
         if not all_device_data:
             return aggregates
 
-        # Power aggregates
-        total_power = sum(
-            d.get("es", {}).get("bat_power", 0) or 0
-            for d in all_device_data
-        )
-        aggregates["total_battery_power"] = total_power
-        aggregates["total_power_in"] = sum(
-            max(0, d.get("es", {}).get("bat_power", 0) or 0)
-            for d in all_device_data
-        )
-        aggregates["total_power_out"] = sum(
-            max(0, -(d.get("es", {}).get("bat_power", 0) or 0))
-            for d in all_device_data
-        )
+        # Power aggregates — battery power = PV - Grid - Off-grid
+        def _device_battery_power(d: dict) -> float:
+            es = d.get("es") or {}
+            pv = (d.get("pv") or {}).get("pv_power", 0) or 0
+            return pv - (es.get("ongrid_power", 0) or 0) - (es.get("offgrid_power", 0) or 0)
+
+        battery_powers = [_device_battery_power(d) for d in all_device_data]
+        aggregates["total_battery_power"] = sum(battery_powers)
+        aggregates["total_power_in"] = sum(max(0, p) for p in battery_powers)
+        aggregates["total_power_out"] = sum(max(0, -p) for p in battery_powers)
 
         # Capacity aggregates
         aggregates["total_rated_capacity"] = sum(
@@ -211,10 +207,7 @@ class MarstekMultiDeviceCoordinator(DataUpdateCoordinator):
             aggregates["total_time_to_dod"] = None
 
         # Combined state
-        power_values = [
-            d.get("es", {}).get("bat_power", 0) or 0
-            for d in all_device_data
-        ]
+        power_values = battery_powers
         charging_flags = [p > 0 for p in power_values]
         discharging_flags = [p < 0 for p in power_values]
         idle_flags = [p == 0 for p in power_values]
@@ -253,7 +246,7 @@ class MarstekMultiDeviceCoordinator(DataUpdateCoordinator):
             for d in all_device_data
         )
         aggregates["total_solar_power"] = sum(
-            d.get("es", {}).get("pv_power", 0) or 0
+            (d.get("pv") or {}).get("pv_power", 0) or 0
             for d in all_device_data
         )
         aggregates["total_grid_power"] = sum(
