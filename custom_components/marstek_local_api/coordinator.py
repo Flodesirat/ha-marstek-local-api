@@ -17,6 +17,7 @@ from .api import MarstekAPIError, MarstekUDPClient
 from .compatibility import CompatibilityMatrix
 from .const import (
     COMMAND_MAX_ATTEMPTS,
+    COMMAND_MIN_INTERVAL,
     COMMAND_TIMEOUT,
     DEFAULT_SCAN_INTERVAL,
     DEVICE_MODEL_VENUS_A,
@@ -38,6 +39,7 @@ class CoordinatorConfig:
 
     command_timeout: int = COMMAND_TIMEOUT
     command_max_attempts: int = COMMAND_MAX_ATTEMPTS
+    command_min_interval: float = COMMAND_MIN_INTERVAL
     stale_data_threshold: int = STALE_DATA_THRESHOLD
     dod_percent: int = DOD_DEFAULT
     medium_interval_secs: int = UPDATE_INTERVAL_MEDIUM_SECS
@@ -64,6 +66,7 @@ class MarstekMultiDeviceCoordinator(DataUpdateCoordinator):
         self._coord_config = cfg
         self.command_timeout = cfg.command_timeout
         self.command_max_attempts = cfg.command_max_attempts
+        self.command_min_interval = cfg.command_min_interval
         self.stale_data_threshold = cfg.stale_data_threshold
         self.dod_percent = cfg.dod_percent
         self.medium_interval_secs = cfg.medium_interval_secs
@@ -91,6 +94,7 @@ class MarstekMultiDeviceCoordinator(DataUpdateCoordinator):
                 remote_port=device_data["port"],
                 command_timeout=self.command_timeout,
                 command_max_attempts=self.command_max_attempts,
+                command_min_interval=self.command_min_interval,
             )
 
             try:
@@ -318,6 +322,7 @@ class MarstekDataUpdateCoordinator(DataUpdateCoordinator):
         self.device_model = device_model
         self.command_timeout = cfg.command_timeout
         self.command_max_attempts = cfg.command_max_attempts
+        self.command_min_interval = cfg.command_min_interval
         self.stale_data_threshold = cfg.stale_data_threshold
         self.dod_percent = cfg.dod_percent
         self.medium_interval_secs = cfg.medium_interval_secs

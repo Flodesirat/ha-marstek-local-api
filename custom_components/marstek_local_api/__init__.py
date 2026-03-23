@@ -10,6 +10,7 @@ from homeassistant.core import HomeAssistant
 from .api import MarstekUDPClient
 from .const import (
     COMMAND_MAX_ATTEMPTS,
+    COMMAND_MIN_INTERVAL,
     COMMAND_TIMEOUT,
     CONF_PORT,
     DATA_COORDINATOR,
@@ -37,6 +38,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     config = CoordinatorConfig(
         command_timeout=entry.options.get("command_timeout", COMMAND_TIMEOUT),
         command_max_attempts=entry.options.get("command_max_attempts", COMMAND_MAX_ATTEMPTS),
+        command_min_interval=entry.options.get("command_min_interval", COMMAND_MIN_INTERVAL),
         stale_data_threshold=entry.options.get("stale_data_threshold", STALE_DATA_THRESHOLD),
         dod_percent=entry.options.get("dod_percent", DOD_DEFAULT),
         medium_interval_secs=entry.options.get("medium_interval_secs", UPDATE_INTERVAL_MEDIUM_SECS),
@@ -75,6 +77,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             host=entry.data[CONF_HOST],
             port=entry.data[CONF_PORT],  # Bind to device port (with reuse_port)
             remote_port=entry.data[CONF_PORT],  # Send to device port
+            command_min_interval=config.command_min_interval,
         )
 
         # Connect to device

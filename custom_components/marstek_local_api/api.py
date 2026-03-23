@@ -18,6 +18,7 @@ from .const import (
     COMMAND_BACKOFF_JITTER,
     COMMAND_BACKOFF_MAX,
     COMMAND_MAX_ATTEMPTS,
+    COMMAND_MIN_INTERVAL,
     COMMAND_TIMEOUT,
     DEFAULT_PORT,
     DIAGNOSTIC_MAX_FRAMES,
@@ -56,6 +57,7 @@ class MarstekUDPClient:
         remote_port: int | None = None,
         command_timeout: int = COMMAND_TIMEOUT,
         command_max_attempts: int = COMMAND_MAX_ATTEMPTS,
+        command_min_interval: float = COMMAND_MIN_INTERVAL,
     ) -> None:
         """Initialize the UDP client.
 
@@ -73,6 +75,7 @@ class MarstekUDPClient:
         self.remote_port = remote_port or DEFAULT_PORT
         self.command_timeout = command_timeout
         self.command_max_attempts = command_max_attempts
+        self.command_min_interval = command_min_interval
         self.transport: asyncio.DatagramTransport | None = None
         self.protocol: MarstekProtocol | None = None
         self._handlers: list = []
@@ -81,6 +84,8 @@ class MarstekUDPClient:
         self._command_stats: dict[str, dict[str, Any]] = {}
         self._msg_id_counter = 0  # Counter for integer message IDs
         self._recent_frames: deque = deque(maxlen=DIAGNOSTIC_MAX_FRAMES)
+        self._send_lock: asyncio.Lock = asyncio.Lock()
+        self._last_send_time: float = 0.0
 
     async def connect(self) -> None:
         """Connect to the UDP socket."""
@@ -262,6 +267,15 @@ class MarstekUDPClient:
             method, msg_id, self.host, self.remote_port, self.transport is not None
         )
 
+        # Serialize access and enforce minimum inter-command interval
+        await self._send_lock.acquire()
+        loop_time = asyncio.get_running_loop().time()
+        wait = self.command_min_interval - (loop_time - self._last_send_time)
+        if wait > 0:
+            _LOGGER.debug("Rate-limiting: waiting %.2fs before sending %s", wait, method)
+            await asyncio.sleep(wait)
+        self._last_send_time = asyncio.get_running_loop().time()
+
         # Shared response tracking for all attempts
         response_event = asyncio.Event()
         response_data: dict[str, Any] = {}
@@ -410,6 +424,7 @@ class MarstekUDPClient:
 
         finally:
             self.unregister_handler(handler)
+            self._send_lock.release()
 
         if last_exception:
             raise last_exception

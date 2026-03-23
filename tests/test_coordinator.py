@@ -137,6 +137,31 @@ class TestMarstekDataUpdateCoordinatorInit:
         assert coord.command_timeout == 5
         assert coord.command_max_attempts == 5
 
+    def test_command_min_interval_propagated_from_config(self):
+        """command_min_interval from CoordinatorConfig is stored on the coordinator."""
+        hass = MagicMock()
+        api = _make_api()
+        cfg = CoordinatorConfig(command_min_interval=3.0)
+        coord = MarstekDataUpdateCoordinator(
+            hass, api,
+            device_name="Test",
+            firmware_version=147,
+            device_model=DEVICE_MODEL_VENUS_A,
+            scan_interval=10,
+            config=cfg,
+        )
+        assert coord.command_min_interval == 3.0
+
+    def test_coordinator_config_default_min_interval(self):
+        """CoordinatorConfig uses the COMMAND_MIN_INTERVAL constant as default."""
+        cfg = CoordinatorConfig()
+        assert cfg.command_min_interval == _const_mod.COMMAND_MIN_INTERVAL
+
+    def test_coordinator_config_custom_min_interval(self):
+        """CoordinatorConfig accepts a custom command_min_interval."""
+        cfg = CoordinatorConfig(command_min_interval=7.5)
+        assert cfg.command_min_interval == 7.5
+
 
 # ---------------------------------------------------------------------------
 # MarstekMultiDeviceCoordinator.__init__

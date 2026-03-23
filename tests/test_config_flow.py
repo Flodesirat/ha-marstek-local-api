@@ -606,6 +606,43 @@ class TestOptionsFlowScanInterval:
         assert result["data"]["dod_percent"] == 80
         assert result["data"]["scan_interval"] == 30
 
+    async def test_command_min_interval_saved(self):
+        """command_min_interval submitted in the form is persisted in options."""
+        flow = _make_options_flow()
+        result = await flow.async_step_scan_interval(user_input={"command_min_interval": 3.0})
+        assert result["type"] == "create_entry"
+        assert result["data"]["command_min_interval"] == 3.0
+
+    async def test_command_min_interval_default_shown_in_form(self):
+        """When no option is set the form default matches COMMAND_MIN_INTERVAL."""
+        from tests.conftest import _load_integration_module
+        const = _load_integration_module("const")
+        flow = _make_options_flow(options={})
+        result = await flow.async_step_scan_interval(user_input=None)
+        assert result["type"] == "form"
+        # Extract the default value from the schema descriptor
+        schema = result["data_schema"]
+        # The schema is a vol.Schema; find the Optional key for command_min_interval
+        default_val = None
+        for key in schema.schema:
+            if str(key) == "command_min_interval":
+                default_val = key.default()
+                break
+        assert default_val == const.COMMAND_MIN_INTERVAL
+
+    async def test_command_min_interval_existing_option_shown_as_default(self):
+        """When an option is already set it is pre-filled as the form default."""
+        flow = _make_options_flow(options={"command_min_interval": 8.0})
+        result = await flow.async_step_scan_interval(user_input=None)
+        assert result["type"] == "form"
+        schema = result["data_schema"]
+        default_val = None
+        for key in schema.schema:
+            if str(key) == "command_min_interval":
+                default_val = key.default()
+                break
+        assert default_val == 8.0
+
 
 # ---------------------------------------------------------------------------
 # OptionsFlow.async_step_battery_settings

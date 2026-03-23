@@ -504,6 +504,216 @@ class TestConnectDisconnect:
 # set_es_mode
 # ---------------------------------------------------------------------------
 
+# ---------------------------------------------------------------------------
+# command_min_interval — rate limiting and lock serialization
+# ---------------------------------------------------------------------------
+
+class TestCommandMinInterval:
+    """Verify that send_command enforces a minimum inter-frame delay."""
+
+    # ------------------------------------------------------------------
+    # Configuration / storage
+    # ------------------------------------------------------------------
+
+    def test_default_value(self):
+        """Default command_min_interval matches the const."""
+        from conftest import _load_integration_module
+        const = _load_integration_module("const")
+        client = _make_client()
+        assert client.command_min_interval == const.COMMAND_MIN_INTERVAL
+
+    def test_custom_value_stored(self):
+        """A custom command_min_interval is stored on the client."""
+        client = _make_client(command_min_interval=2.0)
+        assert client.command_min_interval == 2.0
+
+    # ------------------------------------------------------------------
+    # Rate-limiting sleep
+    # ------------------------------------------------------------------
+
+    async def test_rate_limiting_sleep_applied_when_too_soon(self):
+        """When last send was very recent, a compensating sleep is injected."""
+        client = _make_client(command_min_interval=1.0, command_timeout=0.05, command_max_attempts=1)
+        _inject_connected(client)
+
+        # Pretend a command was sent 0.1 s ago → 0.9 s still needed
+        loop = asyncio.get_running_loop()
+        client._last_send_time = loop.time() - 0.1
+
+        sleep_args = []
+
+        async def capture(t):
+            sleep_args.append(t)
+
+        with patch.object(_api_mod.asyncio, "sleep", side_effect=capture):
+            await client.send_command("Bat.GetStatus")
+
+        positive = [t for t in sleep_args if t > 0]
+        assert len(positive) >= 1, "Expected at least one rate-limiting sleep"
+        assert positive[0] == pytest.approx(0.9, abs=0.05)
+
+    async def test_no_rate_limiting_sleep_when_interval_elapsed(self):
+        """When the interval has already elapsed, no extra sleep is added."""
+        client = _make_client(command_min_interval=0.5, command_timeout=0.05, command_max_attempts=1)
+        _inject_connected(client)
+        # _last_send_time = 0.0 by default; loop.time() is always >> 0.5 → no wait
+
+        sleep_args = []
+
+        async def capture(t):
+            sleep_args.append(t)
+
+        with patch.object(_api_mod.asyncio, "sleep", side_effect=capture):
+            await client.send_command("Bat.GetStatus")
+
+        positive = [t for t in sleep_args if t > 0]
+        assert not positive, f"Unexpected rate-limiting sleep(s): {positive}"
+
+    # ------------------------------------------------------------------
+    # _last_send_time update
+    # ------------------------------------------------------------------
+
+    async def test_last_send_time_updated_after_successful_command(self):
+        """_last_send_time is set to the moment of send after a successful command."""
+        client = _make_client(command_min_interval=0.0)
+        transport = _inject_connected(client)
+
+        async def fake_sendto(data, dest):
+            msg = json.loads(data.decode())
+            response = {"id": msg["id"], "result": {"ok": True}}
+            await client._handle_message(json.dumps(response).encode(), ("192.168.1.100", 30000))
+
+        transport.sendto = MagicMock(
+            side_effect=lambda data, dest: asyncio.create_task(fake_sendto(data, dest))
+        )
+
+        before = asyncio.get_running_loop().time()
+        await client.send_command("Bat.GetStatus")
+        after = asyncio.get_running_loop().time()
+
+        assert before <= client._last_send_time <= after
+
+    async def test_last_send_time_updated_even_on_timeout(self):
+        """_last_send_time is also updated when the command times out."""
+        client = _make_client(command_min_interval=0.0, command_timeout=0.05, command_max_attempts=1)
+        _inject_connected(client)
+
+        before = asyncio.get_running_loop().time()
+        with patch.object(_api_mod.asyncio, "sleep", new_callable=AsyncMock):
+            await client.send_command("Bat.GetStatus")
+        after = asyncio.get_running_loop().time()
+
+        assert before <= client._last_send_time <= after
+
+    # ------------------------------------------------------------------
+    # Lock lifecycle
+    # ------------------------------------------------------------------
+
+    async def test_lock_released_after_success(self):
+        """The send lock is released after a successful command."""
+        client = _make_client(command_min_interval=0.0)
+        transport = _inject_connected(client)
+
+        async def fake_sendto(data, dest):
+            msg = json.loads(data.decode())
+            response = {"id": msg["id"], "result": {}}
+            await client._handle_message(json.dumps(response).encode(), ("192.168.1.100", 30000))
+
+        transport.sendto = MagicMock(
+            side_effect=lambda data, dest: asyncio.create_task(fake_sendto(data, dest))
+        )
+
+        await client.send_command("Bat.GetStatus")
+        assert not client._send_lock.locked()
+
+    async def test_lock_released_after_timeout(self):
+        """The send lock is released even when the command times out."""
+        client = _make_client(command_min_interval=0.0, command_timeout=0.05, command_max_attempts=1)
+        _inject_connected(client)
+
+        with patch.object(_api_mod.asyncio, "sleep", new_callable=AsyncMock):
+            await client.send_command("Bat.GetStatus")
+
+        assert not client._send_lock.locked()
+
+    async def test_lock_released_after_api_error(self):
+        """The send lock is released even when the device returns an error response."""
+        client = _make_client(command_min_interval=0.0, command_timeout=2, command_max_attempts=1)
+        transport = _inject_connected(client)
+
+        async def fake_sendto(data, dest):
+            msg = json.loads(data.decode())
+            response = {"id": msg["id"], "error": {"code": -32601, "message": "Method not found"}}
+            await client._handle_message(json.dumps(response).encode(), ("192.168.1.100", 30000))
+
+        transport.sendto = MagicMock(
+            side_effect=lambda data, dest: asyncio.create_task(fake_sendto(data, dest))
+        )
+
+        with pytest.raises(_api_mod.MarstekAPIError):
+            await client.send_command("Unknown.Method")
+
+        assert not client._send_lock.locked()
+
+    # ------------------------------------------------------------------
+    # Serialization
+    # ------------------------------------------------------------------
+
+    async def test_concurrent_commands_never_overlap(self):
+        """Two concurrent send_command calls must never be in _send_to_host simultaneously."""
+        client = _make_client(command_min_interval=0.0, command_timeout=0.05, command_max_attempts=1)
+        _inject_connected(client)
+
+        max_concurrent = [0]
+        in_flight = [0]
+
+        original_send = client._send_to_host
+
+        async def tracking_send(payload):
+            in_flight[0] += 1
+            max_concurrent[0] = max(max_concurrent[0], in_flight[0])
+            await original_send(payload)
+            in_flight[0] -= 1
+
+        client._send_to_host = tracking_send
+
+        await asyncio.gather(
+            client.send_command("Bat.GetStatus"),
+            client.send_command("ES.GetStatus"),
+            return_exceptions=True,
+        )
+
+        assert max_concurrent[0] == 1, (
+            f"Commands overlapped: max {max_concurrent[0]} in flight at once"
+        )
+
+    async def test_sequential_commands_respect_min_interval(self):
+        """Two sequential sends are separated by at least command_min_interval seconds."""
+        min_interval = 0.1
+        client = _make_client(command_min_interval=min_interval, command_timeout=0.05, command_max_attempts=1)
+        _inject_connected(client)
+
+        send_times = []
+        original_send = client._send_to_host
+
+        async def tracking_send(payload):
+            send_times.append(asyncio.get_running_loop().time())
+            await original_send(payload)
+
+        client._send_to_host = tracking_send
+
+        await client.send_command("Bat.GetStatus")
+        await client.send_command("ES.GetStatus")
+
+        assert len(send_times) == 2
+        gap = send_times[1] - send_times[0]
+        assert gap >= min_interval - 0.02, (
+            f"Gap between sends ({gap:.3f}s) is less than min_interval ({min_interval}s)"
+        )
+
+
+# ---------------------------------------------------------------------------
+
 class TestSetEsMode:
 
     async def test_returns_true_on_success(self):

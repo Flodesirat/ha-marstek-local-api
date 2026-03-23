@@ -20,6 +20,7 @@ from homeassistant.helpers.selector import NumberSelector, NumberSelectorConfig,
 from .api import MarstekAPIError, MarstekUDPClient
 from .const import (
     COMMAND_MAX_ATTEMPTS,
+    COMMAND_MIN_INTERVAL,
     COMMAND_TIMEOUT,
     CONF_PORT,
     DATA_COORDINATOR,
@@ -439,6 +440,10 @@ class OptionsFlow(config_entries.OptionsFlow):
                         "command_max_attempts",
                         default=opts.get("command_max_attempts", COMMAND_MAX_ATTEMPTS),
                     ): NumberSelector(NumberSelectorConfig(min=1, max=10, mode=NumberSelectorMode.BOX)),
+                    vol.Optional(
+                        "command_min_interval",
+                        default=opts.get("command_min_interval", COMMAND_MIN_INTERVAL),
+                    ): NumberSelector(NumberSelectorConfig(min=0.1, max=30.0, step=0.1, mode=NumberSelectorMode.BOX)),
                     vol.Optional(
                         "stale_data_threshold",
                         default=opts.get("stale_data_threshold", STALE_DATA_THRESHOLD),
