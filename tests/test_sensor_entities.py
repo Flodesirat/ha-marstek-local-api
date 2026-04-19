@@ -37,6 +37,7 @@ _time_to_full = _sensor_mod._time_to_full
 _time_to_dod = _sensor_mod._time_to_dod
 _usable_soc = _sensor_mod._usable_soc
 _power_battery = _sensor_mod._power_battery
+_filter_energy_glitch = _sensor_mod._filter_energy_glitch
 
 
 # ---------------------------------------------------------------------------
@@ -454,3 +455,128 @@ class TestAsyncSetupEntry:
         for ch in range(1, 5):
             for field in ("power", "voltage", "current", "state"):
                 assert f"pv{ch}_{field}" not in keys, f"pv{ch}_{field} should not exist for VenusE"
+
+
+# ---------------------------------------------------------------------------
+# _filter_energy_glitch — firmware glitch filter for energy counters
+# ---------------------------------------------------------------------------
+
+def _energy_desc():
+    """Return a MarstekSensorEntityDescription for an energy counter sensor."""
+    from homeassistant.components.sensor import SensorDeviceClass, SensorStateClass
+    from homeassistant.const import UnitOfEnergy
+    return MarstekSensorEntityDescription(
+        key="total_grid_export",
+        name="Energy Total Grid Export",
+        native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
+        device_class=SensorDeviceClass.ENERGY,
+        state_class=SensorStateClass.TOTAL_INCREASING,
+        value_fn=lambda data: data.get("es", {}).get("total_grid_output_energy"),
+        category="es",
+    )
+
+
+def _non_energy_desc():
+    """Return a description that is NOT an energy TOTAL_INCREASING sensor."""
+    return MarstekSensorEntityDescription(
+        key="battery_soc",
+        name="Battery SOC",
+        value_fn=lambda data: data.get("battery", {}).get("soc"),
+    )
+
+
+class TestFilterEnergyGlitch:
+    """Tests for _filter_energy_glitch — reproduces the Venus A firmware bug."""
+
+    def test_first_value_accepted_and_stored(self):
+        state = {"last_valid": None, "drop_count": 0}
+        desc = _energy_desc()
+        assert _filter_energy_glitch(desc, 53.549, state) == pytest.approx(53.549)
+        assert state["last_valid"] == pytest.approx(53.549)
+        assert state["drop_count"] == 0
+
+    def test_increasing_value_accepted(self):
+        state = {"last_valid": 53.549, "drop_count": 0}
+        desc = _energy_desc()
+        assert _filter_energy_glitch(desc, 53.957, state) == pytest.approx(53.957)
+
+    def test_single_glitch_rejected(self):
+        """Reproduces: 53.957 → 0.199 (firmware bug) → 53.961."""
+        state = {"last_valid": 53.957, "drop_count": 0}
+        desc = _energy_desc()
+        assert _filter_energy_glitch(desc, 0.199, state) is None
+        assert state["last_valid"] == pytest.approx(53.957)
+        assert state["drop_count"] == 1
+
+    def test_value_recovers_after_single_glitch(self):
+        """After one rejected glitch, the correct value is accepted."""
+        state = {"last_valid": 53.957, "drop_count": 1}
+        desc = _energy_desc()
+        assert _filter_energy_glitch(desc, 53.961, state) == pytest.approx(53.961)
+        assert state["drop_count"] == 0
+
+    def test_two_consecutive_glitches_rejected(self):
+        """Two consecutive drops are still rejected."""
+        state = {"last_valid": 56.260, "drop_count": 0}
+        desc = _energy_desc()
+        _filter_energy_glitch(desc, 0.196, state)  # drop_count → 1
+        result = _filter_energy_glitch(desc, 0.201, state)  # drop_count → 2
+        assert result is None
+        assert state["drop_count"] == 2
+
+    def test_three_consecutive_drops_accepted_as_real_reset(self):
+        """Three consecutive lower readings → genuine counter reset → accept."""
+        state = {"last_valid": 56.260, "drop_count": 0}
+        desc = _energy_desc()
+        _filter_energy_glitch(desc, 0.196, state)   # drop_count → 1
+        _filter_energy_glitch(desc, 0.201, state)   # drop_count → 2
+        result = _filter_energy_glitch(desc, 0.205, state)  # drop_count → 3 → reset
+        assert result == pytest.approx(0.205)
+        assert state["last_valid"] == pytest.approx(0.205)
+        assert state["drop_count"] == 0
+
+    def test_none_value_returned_as_none(self):
+        state = {"last_valid": 53.0, "drop_count": 0}
+        desc = _energy_desc()
+        assert _filter_energy_glitch(desc, None, state) is None
+        assert state["last_valid"] == pytest.approx(53.0)
+
+    def test_non_energy_sensor_not_filtered(self):
+        """Non-energy sensors pass through unchanged even if the value drops."""
+        state = {"last_valid": 80.0, "drop_count": 0}
+        desc = _non_energy_desc()
+        assert _filter_energy_glitch(desc, 20.0, state) == pytest.approx(20.0)
+
+
+class TestTotalGridExportGlitchOnSensor:
+    """End-to-end test: MarstekSensor.native_value for total_grid_export."""
+
+    def _make_sensor(self, es_value):
+        coord = _make_single_coordinator(data={"es": {"total_grid_output_energy": es_value}})
+        entry = _make_entry()
+        desc = next(d for d in SENSOR_TYPES if d.key == "total_grid_export")
+        sensor = MarstekSensor(coordinator=coord, entity_description=desc, entry=entry)
+        sensor.coordinator = coord
+        return sensor, coord
+
+    def test_normal_sequence_passes_through(self):
+        sensor, coord = self._make_sensor(53549)
+        assert sensor.native_value == pytest.approx(53.549)
+        coord.data = {"es": {"total_grid_output_energy": 53957}}
+        assert sensor.native_value == pytest.approx(53.957)
+
+    def test_single_glitch_returns_none(self):
+        """Firmware bug: value drops from ~53.957 kWh to 0.199 kWh for one poll."""
+        sensor, coord = self._make_sensor(53957)
+        _ = sensor.native_value  # seed last_valid
+        coord.data = {"es": {"total_grid_output_energy": 199}}
+        assert sensor.native_value is None
+
+    def test_value_recovers_after_glitch(self):
+        """After the glitch, the next correct reading is accepted."""
+        sensor, coord = self._make_sensor(53957)
+        _ = sensor.native_value  # seed
+        coord.data = {"es": {"total_grid_output_energy": 199}}
+        _ = sensor.native_value  # glitch → None
+        coord.data = {"es": {"total_grid_output_energy": 53961}}
+        assert sensor.native_value == pytest.approx(53.961)

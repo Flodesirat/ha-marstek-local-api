@@ -51,6 +51,42 @@ def _wh_to_kwh(value: float | int | None) -> float | None:
         return None
 
 
+def _filter_energy_glitch(
+    entity_description: "MarstekSensorEntityDescription",
+    value,
+    state: dict,
+) -> object:
+    """Filter single-poll firmware glitches on energy counter sensors.
+
+    Rejects a value that drops below the last known value unless 3 consecutive
+    lower readings are seen (indicating a genuine counter reset).
+    ``state`` is a mutable dict with keys ``last_valid`` and ``drop_count``.
+    """
+    if (
+        entity_description.state_class != SensorStateClass.TOTAL_INCREASING
+        or entity_description.device_class != SensorDeviceClass.ENERGY
+        or value is None
+        or state["last_valid"] is None
+    ):
+        if value is not None:
+            state["last_valid"] = value
+            state["drop_count"] = 0
+        return value
+
+    if value >= state["last_valid"]:
+        state["last_valid"] = value
+        state["drop_count"] = 0
+        return value
+
+    state["drop_count"] += 1
+    if state["drop_count"] >= 3:
+        state["last_valid"] = value
+        state["drop_count"] = 0
+        return value
+
+    return None
+
+
 def _available_capacity_kwh(data: dict) -> float | None:
     """Calculate remaining capacity in kilowatt-hours."""
     battery = data.get("battery", {})
@@ -798,6 +834,7 @@ class MarstekSensor(CoordinatorEntity, SensorEntity):
         super().__init__(coordinator)
         self.entity_description = entity_description
         self._attr_has_entity_name = True
+        self._energy_state: dict = {"last_valid": None, "drop_count": 0}
         device_mac = entry.data.get("ble_mac") or entry.data.get("wifi_mac")
         self._attr_unique_id = f"{device_mac}_{entity_description.key}"
         self._attr_device_info = DeviceInfo(
@@ -819,7 +856,11 @@ class MarstekSensor(CoordinatorEntity, SensorEntity):
             if not self.coordinator.is_category_fresh(self.entity_description.category):
                 return None  # Stale data - return None instead of old value
 
-        return self.entity_description.value_fn(self.coordinator.data)
+        return _filter_energy_glitch(
+            self.entity_description,
+            self.entity_description.value_fn(self.coordinator.data),
+            self._energy_state,
+        )
 
     @property
     def available(self) -> bool:
@@ -849,6 +890,7 @@ class MarstekMultiDeviceSensor(CoordinatorEntity, SensorEntity):
         self.device_coordinator = device_coordinator
         self.device_mac = device_mac
         self._attr_has_entity_name = True
+        self._energy_state: dict = {"last_valid": None, "drop_count": 0}
         self._attr_unique_id = f"{device_mac}_{entity_description.key}"
 
         # Extract last 4 chars of MAC for device name differentiation
@@ -874,7 +916,11 @@ class MarstekMultiDeviceSensor(CoordinatorEntity, SensorEntity):
                 return None  # Stale data - return None instead of old value
 
         device_data = self.coordinator.get_device_data(self.device_mac)
-        return self.entity_description.value_fn(device_data)
+        return _filter_energy_glitch(
+            self.entity_description,
+            self.entity_description.value_fn(device_data),
+            self._energy_state,
+        )
 
     @property
     def available(self) -> bool:
@@ -903,6 +949,7 @@ class MarstekAggregateSensor(CoordinatorEntity, SensorEntity):
         super().__init__(coordinator)
         self.entity_description = entity_description
         self._attr_has_entity_name = True
+        self._energy_state: dict = {"last_valid": None, "drop_count": 0}
         self._attr_unique_id = f"{system_unique_id}_{entity_description.key}"
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, f"system_{system_unique_id}")},
@@ -915,7 +962,11 @@ class MarstekAggregateSensor(CoordinatorEntity, SensorEntity):
     def native_value(self):
         """Return the state of the sensor."""
         if self.entity_description.value_fn:
-            return self.entity_description.value_fn(self.coordinator.data)
+            return _filter_energy_glitch(
+                self.entity_description,
+                self.entity_description.value_fn(self.coordinator.data),
+                self._energy_state,
+            )
         return None
 
     @property
