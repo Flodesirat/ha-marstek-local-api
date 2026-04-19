@@ -441,4 +441,31 @@ A timeout followed by a very high latency response (e.g. >1000ms) is the signatu
 
 ---
 
+## Releases
+
+### Beta releases (automatic)
+
+Every push to `master` that passes CI automatically triggers a beta release via the **Auto Beta Release** workflow:
+
+- If the current version already has a beta suffix (e.g. `1.3.1b3`), it is incremented → `1.3.1b4`.
+- If the current version is stable (e.g. `1.3.1`), the patch number is incremented and `b1` is appended → `1.3.2b1`.
+
+The workflow updates `manifest.json`, commits, tags, and publishes a pre-release on GitHub automatically. No manual action is needed.
+
+### Stable releases (manual)
+
+Stable releases are triggered manually from GitHub Actions:
+
+1. Go to **Actions → Release → Run workflow**.
+2. Enter the target version (e.g. `1.3.1` or `1.3.1b2`).
+3. Click **Run workflow**.
+
+The workflow will:
+- Run the full test suite (unit + integration tests).
+- Update the version in `manifest.json`.
+- Commit, tag (`v<version>`), and push.
+- Publish a GitHub Release with auto-generated release notes.
+
+---
+
 This repo is a fork from https://github.com/jaapp/ha-marstek-local-api (January 2026)
