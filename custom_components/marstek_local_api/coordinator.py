@@ -329,6 +329,7 @@ class MarstekDataUpdateCoordinator(DataUpdateCoordinator):
         self.dod_percent = cfg.dod_percent
         self.medium_interval_secs = cfg.medium_interval_secs
         self.slow_interval_secs = cfg.slow_interval_secs
+        self.poll_mode = cfg.poll_mode
         self.update_count = 1  # Start at 1 to skip slow updates on first refresh
         self.last_message_timestamp: float | None = None
         jitter_cap = min(2.5, max(0.5, scan_interval * 0.1))

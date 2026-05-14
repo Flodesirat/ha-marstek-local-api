@@ -71,6 +71,7 @@ def _make_coord(**overrides):
     coord.medium_interval_secs = 100
     coord.slow_interval_secs = 400
     coord.stale_data_threshold = 300
+    coord.poll_mode = True
     coord.static_categories = {"device", "wifi", "ble", "mode", "_diagnostic", "aggregates"}
     coord.staleness_threshold = 10
     coord._config_entry = None
@@ -568,6 +569,22 @@ class TestAsyncUpdateData:
         data = await coord._async_update_data()
         assert "es" in data
         assert "battery" in data
+
+    async def test_poll_mode_true_calls_get_es_mode(self):
+        """poll_mode=True: get_es_mode is called during medium tier and mode data stored."""
+        coord = _make_coord(data={"old": "data"}, update_count=10, poll_mode=True)
+        coord.api.get_es_mode = AsyncMock(return_value={"mode": "Auto"})
+        data = await coord._async_update_data()
+        coord.api.get_es_mode.assert_called_once()
+        assert data.get("mode") == {"mode": "Auto"}
+
+    async def test_poll_mode_false_skips_get_es_mode(self):
+        """poll_mode=False: get_es_mode is never called and mode data is absent."""
+        coord = _make_coord(data={"old": "data"}, update_count=10, poll_mode=False)
+        coord.api.get_es_mode = AsyncMock(return_value={"mode": "Auto"})
+        data = await coord._async_update_data()
+        coord.api.get_es_mode.assert_not_called()
+        assert "mode" not in data
 
     async def test_non_first_update_slow_tier(self):
         """Non-first update at count=40 (slow_cycle=40 with 10s interval): slow tier runs."""
