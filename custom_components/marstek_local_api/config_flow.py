@@ -456,6 +456,10 @@ class OptionsFlow(config_entries.OptionsFlow):
                         "slow_interval_secs",
                         default=opts.get("slow_interval_secs", UPDATE_INTERVAL_SLOW_SECS),
                     ): NumberSelector(NumberSelectorConfig(min=300, max=86400, mode=NumberSelectorMode.BOX)),
+                    vol.Optional(
+                        "poll_mode",
+                        default=opts.get("poll_mode", True),
+                    ): cv.boolean,
                 }
             ),
         )

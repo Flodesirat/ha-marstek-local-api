@@ -5,6 +5,7 @@ DOMAIN: Final = "marstek_local_api"
 
 # Configuration keys
 CONF_PORT: Final = "port"
+CONF_POLL_MODE: Final = "poll_mode"
 
 # Default values
 DEFAULT_PORT: Final = 30000

@@ -44,6 +44,7 @@ class CoordinatorConfig:
     dod_percent: int = DOD_DEFAULT
     medium_interval_secs: int = UPDATE_INTERVAL_MEDIUM_SECS
     slow_interval_secs: int = UPDATE_INTERVAL_SLOW_SECS
+    poll_mode: bool = True
 
 
 class MarstekMultiDeviceCoordinator(DataUpdateCoordinator):
@@ -71,6 +72,7 @@ class MarstekMultiDeviceCoordinator(DataUpdateCoordinator):
         self.dod_percent = cfg.dod_percent
         self.medium_interval_secs = cfg.medium_interval_secs
         self.slow_interval_secs = cfg.slow_interval_secs
+        self.poll_mode = cfg.poll_mode
 
         super().__init__(
             hass,
@@ -641,7 +643,7 @@ class MarstekDataUpdateCoordinator(DataUpdateCoordinator):
                     had_success = True
 
             # Medium priority (continued) - ES.GetMode
-            if run_medium:
+            if run_medium and self.poll_mode:
                 try:
                     await asyncio.sleep(_command_delay())  # Delay between API calls
                     mode_status = await self.api.get_es_mode(**_command_kwargs())

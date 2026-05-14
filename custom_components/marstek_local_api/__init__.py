@@ -43,6 +43,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         dod_percent=entry.options.get("dod_percent", DOD_DEFAULT),
         medium_interval_secs=entry.options.get("medium_interval_secs", UPDATE_INTERVAL_MEDIUM_SECS),
         slow_interval_secs=entry.options.get("slow_interval_secs", UPDATE_INTERVAL_SLOW_SECS),
+        poll_mode=entry.options.get("poll_mode", True),
     )
 
     # Check if this is a multi-device or single-device entry
