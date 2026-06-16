@@ -212,7 +212,7 @@ class TestESSensorsWithData:
         # pv_power = pv1(200) + pv2(100) + pv3(0) + pv4(0) = 300 W
         return {
             **venus_a_coordinator_data,
-            "es": {"bat_power": 1200, "ongrid_power": -300, "offgrid_power": 0, "total_pv_energy": 50000, "total_grid_input_energy": 20000, "total_grid_output_energy": 10000, "total_load_energy": 30000},
+            "es": {"bat_power": 1200, "ongrid_power": -300, "offgrid_power": 0, "total_pv_energy": 5000, "total_grid_input_energy": 20000, "total_grid_output_energy": 10000, "total_load_energy": 30000},
             "pv": {"pv1_power": 200, "pv2_power": 100, "pv3_power": 0, "pv4_power": 0, "pv_power": 300},
         }
 

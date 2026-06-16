@@ -51,6 +51,11 @@ def _wh_to_kwh(value: float | int | None) -> float | None:
         return None
 
 
+def _10wh_to_kwh(value: float | int | None) -> float | None:
+    """Convert a raw value in 10-watt-hour units to kilowatt-hours."""
+    return _wh_to_kwh(value * 10 if value is not None else None)
+
+
 def _filter_energy_glitch(
     entity_description: "MarstekSensorEntityDescription",
     value,
@@ -348,7 +353,7 @@ SENSOR_TYPES: tuple[MarstekSensorEntityDescription, ...] = (
         native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
         device_class=SensorDeviceClass.ENERGY,
         state_class=SensorStateClass.TOTAL_INCREASING,
-        value_fn=lambda data: _wh_to_kwh((data.get("es", {}).get("total_pv_energy") or 0) * 10),
+        value_fn=lambda data: _10wh_to_kwh((data.get("es") or {}).get("total_pv_energy")),
         category="es",
     ),
     MarstekSensorEntityDescription(
@@ -685,7 +690,7 @@ AGGREGATE_SENSOR_TYPES: tuple[MarstekSensorEntityDescription, ...] = (
         native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
         device_class=SensorDeviceClass.ENERGY,
         state_class=SensorStateClass.TOTAL_INCREASING,
-        value_fn=lambda data: _wh_to_kwh((data.get("aggregates", {}).get("total_pv_energy") or 0) * 10),
+        value_fn=lambda data: _10wh_to_kwh((data.get("aggregates") or {}).get("total_pv_energy")),
         category="aggregates",
     ),
     MarstekSensorEntityDescription(

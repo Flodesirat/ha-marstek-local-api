@@ -33,6 +33,13 @@ from .const import (
 _LOGGER = logging.getLogger(__name__)
 
 
+def _as_signed16(val: int | None) -> int | None:
+    """Interpret a 16-bit unsigned integer as signed (two's complement)."""
+    if val is None:
+        return None
+    return val - 65536 if val > 32767 else val
+
+
 @dataclass
 class CoordinatorConfig:
     """Operational configuration shared between coordinators."""
@@ -559,6 +566,8 @@ class MarstekDataUpdateCoordinator(DataUpdateCoordinator):
                     es_status["pv_power"] = self.compatibility.scale_value(
                         es_status["pv_power"], "pv_power"
                     )
+                if "offgrid_power" in es_status:
+                    es_status["offgrid_power"] = _as_signed16(es_status["offgrid_power"])
 
                 data["es"] = es_status
                 self.category_last_updated["es"] = time.time()
