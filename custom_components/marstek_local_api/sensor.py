@@ -348,7 +348,7 @@ SENSOR_TYPES: tuple[MarstekSensorEntityDescription, ...] = (
         native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
         device_class=SensorDeviceClass.ENERGY,
         state_class=SensorStateClass.TOTAL_INCREASING,
-        value_fn=lambda data: _wh_to_kwh(data.get("es", {}).get("total_pv_energy")),
+        value_fn=lambda data: _wh_to_kwh((data.get("es", {}).get("total_pv_energy") or 0) * 10),
         category="es",
     ),
     MarstekSensorEntityDescription(
@@ -685,7 +685,7 @@ AGGREGATE_SENSOR_TYPES: tuple[MarstekSensorEntityDescription, ...] = (
         native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
         device_class=SensorDeviceClass.ENERGY,
         state_class=SensorStateClass.TOTAL_INCREASING,
-        value_fn=lambda data: _wh_to_kwh(data.get("aggregates", {}).get("total_pv_energy")),
+        value_fn=lambda data: _wh_to_kwh((data.get("aggregates", {}).get("total_pv_energy") or 0) * 10),
         category="aggregates",
     ),
     MarstekSensorEntityDescription(
