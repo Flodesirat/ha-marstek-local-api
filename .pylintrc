@@ -37,6 +37,9 @@ disable =
 # HA ecosystem standard (black default is 88, but integrations use 120)
 max-line-length = 120
 
+# sensor.py legitimately grows as more Marstek sensor descriptions are added
+max-module-lines = 1200
+
 [DESIGN]
 # Coordinators and config flows legitimately require many parameters/attributes
 max-args = 14

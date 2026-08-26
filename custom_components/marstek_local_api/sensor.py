@@ -26,6 +26,13 @@ from homeassistant.helpers.entity import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
+from .battery_energy import (
+    aggregate_energy_components,
+    build_aggregate_entities,
+    build_multi_device_entities,
+    build_single_device_entities,
+    es_energy_components,
+)
 from .const import DATA_COORDINATOR, DEVICE_MODEL_VENUS_A, DEVICE_MODEL_VENUS_D, DOD_DEFAULT, DOMAIN
 from .coordinator import MarstekDataUpdateCoordinator, MarstekMultiDeviceCoordinator
 
@@ -39,6 +46,9 @@ class MarstekSensorEntityDescription(SensorEntityDescription):
     value_fn: Callable[[dict], any] | None = None
     available_fn: Callable[[dict], bool] | None = None
     category: str | None = None
+    # Used only by MarstekBatteryEnergyBalanceSensor (stateful, not value_fn-driven)
+    direction: str | None = None
+    components_fn: Callable[[dict], tuple | None] | None = None
 
 
 def _wh_to_kwh(value: float | int | None) -> float | None:
@@ -49,11 +59,6 @@ def _wh_to_kwh(value: float | int | None) -> float | None:
         return float(value) / 1000
     except (TypeError, ValueError):
         return None
-
-
-def _10wh_to_kwh(value: float | int | None) -> float | None:
-    """Convert a raw value in 10-watt-hour units to kilowatt-hours."""
-    return _wh_to_kwh(value * 10 if value is not None else None)
 
 
 def _filter_energy_glitch(
@@ -353,7 +358,7 @@ SENSOR_TYPES: tuple[MarstekSensorEntityDescription, ...] = (
         native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
         device_class=SensorDeviceClass.ENERGY,
         state_class=SensorStateClass.TOTAL_INCREASING,
-        value_fn=lambda data: _10wh_to_kwh((data.get("es") or {}).get("total_pv_energy")),
+        value_fn=lambda data: _wh_to_kwh((data.get("es") or {}).get("total_pv_energy")),
         category="es",
     ),
     MarstekSensorEntityDescription(
@@ -382,6 +387,26 @@ SENSOR_TYPES: tuple[MarstekSensorEntityDescription, ...] = (
         state_class=SensorStateClass.TOTAL_INCREASING,
         value_fn=lambda data: _wh_to_kwh(data.get("es", {}).get("total_load_energy")),
         category="es",
+    ),
+    MarstekSensorEntityDescription(
+        key="total_battery_charge_energy",
+        name="Energy Total Battery Charge",
+        native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
+        device_class=SensorDeviceClass.ENERGY,
+        state_class=SensorStateClass.TOTAL_INCREASING,
+        category="es",
+        direction="charge",
+        components_fn=es_energy_components,
+    ),
+    MarstekSensorEntityDescription(
+        key="total_battery_discharge_energy",
+        name="Energy Total Battery Discharge",
+        native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
+        device_class=SensorDeviceClass.ENERGY,
+        state_class=SensorStateClass.TOTAL_INCREASING,
+        category="es",
+        direction="discharge",
+        components_fn=es_energy_components,
     ),
     # Energy Meter / CT sensors
     MarstekSensorEntityDescription(
@@ -690,7 +715,7 @@ AGGREGATE_SENSOR_TYPES: tuple[MarstekSensorEntityDescription, ...] = (
         native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
         device_class=SensorDeviceClass.ENERGY,
         state_class=SensorStateClass.TOTAL_INCREASING,
-        value_fn=lambda data: _10wh_to_kwh((data.get("aggregates") or {}).get("total_pv_energy")),
+        value_fn=lambda data: _wh_to_kwh((data.get("aggregates") or {}).get("total_pv_energy")),
         category="aggregates",
     ),
     MarstekSensorEntityDescription(
@@ -730,6 +755,26 @@ AGGREGATE_SENSOR_TYPES: tuple[MarstekSensorEntityDescription, ...] = (
         category="aggregates",
     ),
     MarstekSensorEntityDescription(
+        key="system_total_battery_charge_energy",
+        name="Total battery charge energy",
+        native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
+        device_class=SensorDeviceClass.ENERGY,
+        state_class=SensorStateClass.TOTAL_INCREASING,
+        category="aggregates",
+        direction="charge",
+        components_fn=aggregate_energy_components,
+    ),
+    MarstekSensorEntityDescription(
+        key="system_total_battery_discharge_energy",
+        name="Total battery discharge energy",
+        native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
+        device_class=SensorDeviceClass.ENERGY,
+        state_class=SensorStateClass.TOTAL_INCREASING,
+        category="aggregates",
+        direction="discharge",
+        components_fn=aggregate_energy_components,
+    ),
+    MarstekSensorEntityDescription(
         key="system_total_offgrid_power",
         name="Total off-grid power",
         native_unit_of_measurement=UnitOfPower.WATT,
@@ -760,6 +805,8 @@ async def async_setup_entry(
 
             # Add standard sensors for this device
             for description in SENSOR_TYPES:
+                if description.components_fn is not None:
+                    continue
                 entities.append(
                     MarstekMultiDeviceSensor(
                         coordinator=coordinator,
@@ -769,6 +816,15 @@ async def async_setup_entry(
                         device_data=device_data,
                     )
                 )
+            entities.extend(
+                build_multi_device_entities(
+                    coordinator,
+                    mac,
+                    device_coordinator,
+                    device_data,
+                    [d for d in SENSOR_TYPES if d.components_fn is not None],
+                )
+            )
 
             # Add PV sensors if Venus D or Venus A (use normalized base_model)
             if (device_coordinator.compatibility.base_model in [DEVICE_MODEL_VENUS_D, DEVICE_MODEL_VENUS_A]):
@@ -789,6 +845,8 @@ async def async_setup_entry(
         system_unique_id = "_".join(all_macs)
 
         for description in AGGREGATE_SENSOR_TYPES:
+            if description.components_fn is not None:
+                continue
             entities.append(
                 MarstekAggregateSensor(
                     coordinator=coordinator,
@@ -797,11 +855,20 @@ async def async_setup_entry(
                     device_count=len(all_macs),
                 )
             )
+        entities.extend(
+            build_aggregate_entities(
+                coordinator,
+                system_unique_id,
+                [d for d in AGGREGATE_SENSOR_TYPES if d.components_fn is not None],
+            )
+        )
 
     else:
         # Single device mode (legacy)
         # Add standard sensors
         for description in SENSOR_TYPES:
+            if description.components_fn is not None:
+                continue
             entities.append(
                 MarstekSensor(
                     coordinator=coordinator,
@@ -809,6 +876,13 @@ async def async_setup_entry(
                     entry=entry,
                 )
             )
+        entities.extend(
+            build_single_device_entities(
+                coordinator,
+                entry,
+                [d for d in SENSOR_TYPES if d.components_fn is not None],
+            )
+        )
 
         # Add PV sensors if Venus D or Venus A (use normalized base_model)
         if coordinator.compatibility.base_model in [DEVICE_MODEL_VENUS_D, DEVICE_MODEL_VENUS_A]:

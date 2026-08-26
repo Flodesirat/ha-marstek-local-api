@@ -136,6 +136,15 @@ class CompatibilityMatrix:
             ("VenusE",HW_VERSION_3, 0): 1.0,      # FW 0+: raw value in W
         },
 
+        # Solar (PV) energy (Wh) — raw unit is deca-Wh on all known models/firmwares
+        "total_pv_energy": {
+            ("VenusA",HW_VERSION_2, 0): 0.1,      # FW 0+: raw × 10 = Wh (÷0.1)
+            ("VenusD",HW_VERSION_2, 0): 0.1,      # FW 0+: raw × 10 = Wh (÷0.1)
+            ("VenusC",HW_VERSION_2, 0): 0.1,      # FW 0+: raw × 10 = Wh (÷0.1)
+            ("VenusE",HW_VERSION_2, 0): 0.1,      # FW 0+: raw × 10 = Wh (÷0.1)
+            ("VenusE",HW_VERSION_3, 0): 0.1,      # FW 0+: raw × 10 = Wh (÷0.1)
+        },
+
         # Grid import energy (Wh)
         "total_grid_input_energy": {
             ("VenusA",HW_VERSION_2, 0): 1.0,      # FW 0+: raw value in Wh

@@ -70,6 +70,13 @@ class TestVenusAFirmware147Scaling:
 
     # --- energy totals ---
 
+    def test_total_pv_energy_scaled_by_10(self):
+        """VenusA FW 0+: raw is deca-Wh → divisor 0.1 → ×10 to get Wh."""
+        assert self.m.scale_value(5000, "total_pv_energy") == pytest.approx(50000.0)
+
+    def test_total_pv_energy_none(self):
+        assert self.m.scale_value(None, "total_pv_energy") is None
+
     def test_total_grid_input_energy(self):
         """VenusA FW 0+: divisor 1.0 → raw value in Wh unchanged."""
         assert self.m.scale_value(12345, "total_grid_input_energy") == pytest.approx(12345.0)

@@ -550,6 +550,10 @@ class MarstekDataUpdateCoordinator(DataUpdateCoordinator):
                     es_status["bat_power"] = self.compatibility.scale_value(
                         es_status["bat_power"], "bat_power"
                     )
+                if "total_pv_energy" in es_status:
+                    es_status["total_pv_energy"] = self.compatibility.scale_value(
+                        es_status["total_pv_energy"], "total_pv_energy"
+                    )
                 if "total_grid_input_energy" in es_status:
                     es_status["total_grid_input_energy"] = self.compatibility.scale_value(
                         es_status["total_grid_input_energy"], "total_grid_input_energy"

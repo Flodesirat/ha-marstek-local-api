@@ -104,7 +104,12 @@ class _DataUpdateCoordinator:
 
 class _CoordinatorEntity:
     """Stub base class to avoid duplicate-base conflicts."""
-    def __init__(self, coordinator=None, *a, **kw): pass
+    def __init__(self, coordinator=None, *a, **kw):
+        self.coordinator = coordinator
+
+    def _handle_coordinator_update(self) -> None:
+        """Mirrors real CoordinatorEntity: refresh entity state on coordinator push."""
+        self.async_write_ha_state()
 
 
 class _SensorEntity:

@@ -792,6 +792,14 @@ class TestAsyncUpdateData:
         data = await coord._async_update_data()
         assert "battery" in data
 
+    async def test_es_total_pv_energy_scaled_by_10(self):
+        """VenusA FW147: total_pv_energy raw is deca-Wh → scaled ×10 to Wh."""
+        coord = _make_coord(data={"old": "data"}, update_count=10)
+        coord.api.get_battery_status = AsyncMock(return_value={"soc": 70})
+        coord.api.get_es_status = AsyncMock(return_value={"total_pv_energy": 5000})
+        data = await coord._async_update_data()
+        assert data["es"]["total_pv_energy"] == pytest.approx(50000.0)
+
     async def test_pv_status_with_pv_power_field(self):
         """pv_status with pv_power → pv_power scaling applied."""
         coord = _make_coord(data={"old": "data"}, update_count=10)
