@@ -99,6 +99,11 @@ class MockSensorEntity:
     pass
 
 
+class MockRestoreSensor:
+    """Mock RestoreSensor class."""
+    pass
+
+
 @dataclass
 class MockSensorEntityDescription:
     """Mock SensorEntityDescription class."""
@@ -108,8 +113,12 @@ class MockSensorEntityDescription:
     native_unit_of_measurement: str | None = None
     device_class: str | None = None
     state_class: str | None = None
+    suggested_display_precision: int | None = None
     value_fn: Callable[[dict], Any] | None = None
     available_fn: Callable[[dict], bool] | None = None
+    category: str | None = None
+    direction: str | None = None
+    components_fn: Callable[[dict], tuple | None] | None = None
 
 
 class MockSensorStateClass:
@@ -151,6 +160,7 @@ homeassistant_helpers_update_coordinator.CoordinatorEntity = MockCoordinatorEnti
 homeassistant_components_sensor = type(sys)("homeassistant.components.sensor")
 homeassistant_components_sensor.SensorDeviceClass = MockSensorDeviceClass
 homeassistant_components_sensor.SensorEntity = MockSensorEntity
+homeassistant_components_sensor.RestoreSensor = MockRestoreSensor
 homeassistant_components_sensor.SensorEntityDescription = MockSensorEntityDescription
 homeassistant_components_sensor.SensorStateClass = MockSensorStateClass
 
@@ -164,7 +174,7 @@ homeassistant_const.UnitOfElectricPotential = type("UnitOfElectricPotential", ()
 homeassistant_const.UnitOfEnergy = type("UnitOfEnergy", (), {"WATT_HOUR": "Wh", "KILO_WATT_HOUR": "kWh"})()
 homeassistant_const.UnitOfPower = type("UnitOfPower", (), {"WATT": "W"})()
 homeassistant_const.UnitOfTemperature = type("UnitOfTemperature", (), {"CELSIUS": "°C"})()
-homeassistant_const.UnitOfTime = type("UnitOfTime", (), {"SECONDS": "s"})()
+homeassistant_const.UnitOfTime = type("UnitOfTime", (), {"SECONDS": "s", "MINUTES": "min"})()
 
 homeassistant_helpers_entity = type(sys)("homeassistant.helpers.entity")
 homeassistant_helpers_entity.DeviceInfo = MockDeviceInfo
