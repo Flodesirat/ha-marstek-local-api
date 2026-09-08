@@ -286,6 +286,7 @@ Known issues:
  - Energy counters / capacity fields may be reported in Wh instead of kWh on certain firmware (values appear 1000× off).
  - `ES.GetStatus` can be unresponsive on some Venus E v3 firmwares (reported on v137 / v139).
  - CT connection state may be reported as "disconnected" / power values might not be updated even when a CT is connected (appears fixed in HW v2 firmware v154+).
+ - Venus A devices may randomly reset to factory settings (losing manual schedules, disabling the Local API) while the Local API is enabled — reported on firmware v147/v148. This appears to be a Marstek firmware/cloud-side bug (not reproduced by the maintainer, and not something the integration can control); it does not happen with the Local API disabled. Best known mitigation: fully power off the device (unplug + power button) for 4+ hours, then power back on; upgrading to firmware v149+ (available on request from Marstek support) has also resolved it for several users. See [#4](https://github.com/Flodesirat/ha-marstek-local-api/issues/4).
 
 Most of these issues are resolved by updating the device to the latest firmware — Marstek staggers rollouts, so many systems still run older versions. The Local API is evolving quickly and should stabilise as updates are deployed.
 
