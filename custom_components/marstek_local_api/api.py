@@ -250,7 +250,7 @@ class MarstekUDPClient:
             params = {"id": 0}
 
         effective_timeout = timeout if timeout is not None else self.command_timeout
-        attempt_limit = max_attempts if max_attempts is not None else self.command_max_attempts
+        attempt_limit = int(max_attempts if max_attempts is not None else self.command_max_attempts)
 
         # Generate unique integer message ID (required for Venus E firmware V139+)
         self._msg_id_counter = (self._msg_id_counter + 1) % 1000000  # Wrap at 1 million

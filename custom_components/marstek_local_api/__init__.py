@@ -33,16 +33,18 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up Marstek Local API from a config entry."""
     hass.data.setdefault(DOMAIN, {})
 
-    # Get polling/timeout options (with defaults from constants)
-    scan_interval = entry.options.get("scan_interval", DEFAULT_SCAN_INTERVAL)
+    # Get polling/timeout options (with defaults from constants).
+    # Cast to int/float here too, since options entries saved before the
+    # NumberSelector coercion fix may still hold floats (e.g. 3.0).
+    scan_interval = int(entry.options.get("scan_interval", DEFAULT_SCAN_INTERVAL))
     config = CoordinatorConfig(
-        command_timeout=entry.options.get("command_timeout", COMMAND_TIMEOUT),
-        command_max_attempts=entry.options.get("command_max_attempts", COMMAND_MAX_ATTEMPTS),
-        command_min_interval=entry.options.get("command_min_interval", COMMAND_MIN_INTERVAL),
-        stale_data_threshold=entry.options.get("stale_data_threshold", STALE_DATA_THRESHOLD),
-        dod_percent=entry.options.get("dod_percent", DOD_DEFAULT),
-        medium_interval_secs=entry.options.get("medium_interval_secs", UPDATE_INTERVAL_MEDIUM_SECS),
-        slow_interval_secs=entry.options.get("slow_interval_secs", UPDATE_INTERVAL_SLOW_SECS),
+        command_timeout=int(entry.options.get("command_timeout", COMMAND_TIMEOUT)),
+        command_max_attempts=int(entry.options.get("command_max_attempts", COMMAND_MAX_ATTEMPTS)),
+        command_min_interval=float(entry.options.get("command_min_interval", COMMAND_MIN_INTERVAL)),
+        stale_data_threshold=int(entry.options.get("stale_data_threshold", STALE_DATA_THRESHOLD)),
+        dod_percent=int(entry.options.get("dod_percent", DOD_DEFAULT)),
+        medium_interval_secs=int(entry.options.get("medium_interval_secs", UPDATE_INTERVAL_MEDIUM_SECS)),
+        slow_interval_secs=int(entry.options.get("slow_interval_secs", UPDATE_INTERVAL_SLOW_SECS)),
         poll_mode=entry.options.get("poll_mode", True),
     )
 

@@ -431,31 +431,52 @@ class OptionsFlow(config_entries.OptionsFlow):
                     vol.Optional(
                         "scan_interval",
                         default=opts.get("scan_interval", DEFAULT_SCAN_INTERVAL),
-                    ): NumberSelector(NumberSelectorConfig(min=10, max=900, mode=NumberSelectorMode.BOX)),
+                    ): vol.All(
+                        NumberSelector(NumberSelectorConfig(min=10, max=900, mode=NumberSelectorMode.BOX)),
+                        vol.Coerce(int),
+                    ),
                     vol.Optional(
                         "command_timeout",
                         default=opts.get("command_timeout", COMMAND_TIMEOUT),
-                    ): NumberSelector(NumberSelectorConfig(min=1, max=10, mode=NumberSelectorMode.BOX)),
+                    ): vol.All(
+                        NumberSelector(NumberSelectorConfig(min=1, max=10, mode=NumberSelectorMode.BOX)),
+                        vol.Coerce(int),
+                    ),
                     vol.Optional(
                         "command_max_attempts",
                         default=opts.get("command_max_attempts", COMMAND_MAX_ATTEMPTS),
-                    ): NumberSelector(NumberSelectorConfig(min=1, max=10, mode=NumberSelectorMode.BOX)),
+                    ): vol.All(
+                        NumberSelector(NumberSelectorConfig(min=1, max=10, mode=NumberSelectorMode.BOX)),
+                        vol.Coerce(int),
+                    ),
                     vol.Optional(
                         "command_min_interval",
                         default=opts.get("command_min_interval", COMMAND_MIN_INTERVAL),
-                    ): NumberSelector(NumberSelectorConfig(min=0.1, max=30.0, step=0.1, mode=NumberSelectorMode.BOX)),
+                    ): vol.All(
+                        NumberSelector(NumberSelectorConfig(min=0.1, max=30.0, step=0.1, mode=NumberSelectorMode.BOX)),
+                        vol.Coerce(float),
+                    ),
                     vol.Optional(
                         "stale_data_threshold",
                         default=opts.get("stale_data_threshold", STALE_DATA_THRESHOLD),
-                    ): NumberSelector(NumberSelectorConfig(min=60, max=86400, mode=NumberSelectorMode.BOX)),
+                    ): vol.All(
+                        NumberSelector(NumberSelectorConfig(min=60, max=86400, mode=NumberSelectorMode.BOX)),
+                        vol.Coerce(int),
+                    ),
                     vol.Optional(
                         "medium_interval_secs",
                         default=opts.get("medium_interval_secs", UPDATE_INTERVAL_MEDIUM_SECS),
-                    ): NumberSelector(NumberSelectorConfig(min=60, max=3600, mode=NumberSelectorMode.BOX)),
+                    ): vol.All(
+                        NumberSelector(NumberSelectorConfig(min=60, max=3600, mode=NumberSelectorMode.BOX)),
+                        vol.Coerce(int),
+                    ),
                     vol.Optional(
                         "slow_interval_secs",
                         default=opts.get("slow_interval_secs", UPDATE_INTERVAL_SLOW_SECS),
-                    ): NumberSelector(NumberSelectorConfig(min=300, max=86400, mode=NumberSelectorMode.BOX)),
+                    ): vol.All(
+                        NumberSelector(NumberSelectorConfig(min=300, max=86400, mode=NumberSelectorMode.BOX)),
+                        vol.Coerce(int),
+                    ),
                     vol.Optional(
                         "poll_mode",
                         default=opts.get("poll_mode", True),
@@ -479,7 +500,10 @@ class OptionsFlow(config_entries.OptionsFlow):
                     vol.Optional(
                         "dod_percent",
                         default=opts.get("dod_percent", DOD_DEFAULT),
-                    ): NumberSelector(NumberSelectorConfig(min=10, max=100, mode=NumberSelectorMode.BOX)),
+                    ): vol.All(
+                        NumberSelector(NumberSelectorConfig(min=10, max=100, mode=NumberSelectorMode.BOX)),
+                        vol.Coerce(int),
+                    ),
                 }
             ),
         )

@@ -336,6 +336,25 @@ class TestSendCommand:
         with pytest.raises(MarstekAPIError, match="Method not found"):
             await client.send_command("Unknown.Method", {"id": 0})
 
+    async def test_float_command_max_attempts_does_not_crash(self):
+        """Regression test for #10.
+
+        Saving the options form via HA's NumberSelector previously stored
+        command_max_attempts as a float (e.g. 3.0). `range(1, attempt_limit + 1)`
+        raises `TypeError: 'float' object cannot be interpreted as an integer`
+        for any non-integer attempt_limit, breaking every command.
+        """
+        client = self._setup_with_result({"soc": 75})
+        client.command_max_attempts = 3.0
+        result = await client.send_command("Bat.GetStatus", {"id": 0})
+        assert result == {"soc": 75}
+
+    async def test_float_max_attempts_argument_does_not_crash(self):
+        """Same as above, but passing the float directly as max_attempts."""
+        client = self._setup_with_result({"soc": 75})
+        result = await client.send_command("Bat.GetStatus", {"id": 0}, max_attempts=3.0)
+        assert result == {"soc": 75}
+
     async def test_timeout_returns_none(self):
         """No response → all attempts time out → returns None."""
         client = _make_client(command_timeout=0.05, command_max_attempts=1)

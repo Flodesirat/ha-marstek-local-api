@@ -643,6 +643,41 @@ class TestOptionsFlowScanInterval:
                 break
         assert default_val == 8.0
 
+    async def test_schema_coerces_number_selector_floats_to_int(self):
+        """Regression test for #10: NumberSelector fields must come back as int.
+
+        HA's NumberSelector always returns floats from the frontend. Without
+        vol.Coerce(int) in the schema, saving the form stores floats (e.g.
+        command_max_attempts=3.0), which later crashes `range(1, 3.0 + 1)` in
+        api.py since range() requires an int.
+        """
+        flow = _make_options_flow()
+        result = await flow.async_step_scan_interval(user_input=None)
+        schema = result["data_schema"]
+
+        raw_frontend_input = {
+            "scan_interval": 30.0,
+            "command_timeout": 5.0,
+            "command_max_attempts": 3.0,
+            "command_min_interval": 1.0,
+            "stale_data_threshold": 300.0,
+            "medium_interval_secs": 60.0,
+            "slow_interval_secs": 600.0,
+            "poll_mode": True,
+        }
+        validated = schema(raw_frontend_input)
+
+        for key in (
+            "scan_interval",
+            "command_timeout",
+            "command_max_attempts",
+            "stale_data_threshold",
+            "medium_interval_secs",
+            "slow_interval_secs",
+        ):
+            assert isinstance(validated[key], int), f"{key} should be coerced to int, got {type(validated[key])}"
+        assert isinstance(validated["command_min_interval"], float)
+
 
 # ---------------------------------------------------------------------------
 # OptionsFlow.async_step_battery_settings
