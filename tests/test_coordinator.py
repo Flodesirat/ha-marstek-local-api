@@ -10,6 +10,8 @@ import pytest
 
 from conftest import _load_integration_module
 
+from custom_components.marstek_local_api.const import SOCKET_RECOVERY_THRESHOLD
+
 # ---------------------------------------------------------------------------
 # Load modules
 # ---------------------------------------------------------------------------
@@ -51,6 +53,7 @@ def _make_api():
     api.get_es_mode = AsyncMock(return_value=None)
     api.get_command_stats = MagicMock(return_value=None)
     api.connect = AsyncMock()
+    api.reconnect = AsyncMock()
     return api
 
 
@@ -66,6 +69,8 @@ def _make_coord(**overrides):
     coord.category_last_updated = {}
     coord.last_message_timestamp = None
     coord._last_update_start = None
+    coord.consecutive_failed_cycles = 0
+    coord.socket_recreations = 0
     coord.dod_percent = DOD_DEFAULT
     # update_interval=10s → medium_cycle=10 (100/10), slow_cycle=40 (400/10)
     coord.medium_interval_secs = 100
@@ -553,6 +558,33 @@ class TestAsyncUpdateData:
         assert "pv" in data
         assert data["_config"]["dod_percent"] == DOD_DEFAULT
         assert coord.last_message_timestamp is not None
+
+    async def test_watchdog_recreates_socket_after_threshold(self):
+        coord = _make_coord()
+        for _ in range(SOCKET_RECOVERY_THRESHOLD - 1):
+            await coord._async_update_data()
+        coord.api.reconnect.assert_not_awaited()
+        await coord._async_update_data()
+        coord.api.reconnect.assert_awaited_once()
+        assert coord.socket_recreations == 1
+        assert coord.consecutive_failed_cycles == 0
+
+    async def test_watchdog_reset_on_success(self):
+        coord = _make_coord()
+        await coord._async_update_data()
+        await coord._async_update_data()
+        assert coord.consecutive_failed_cycles == 2
+        coord.api.get_es_status = AsyncMock(return_value={"bat_power": 1})
+        await coord._async_update_data()
+        assert coord.consecutive_failed_cycles == 0
+        coord.api.reconnect.assert_not_awaited()
+
+    async def test_watchdog_tolerates_reconnect_error(self):
+        coord = _make_coord()
+        coord.api.reconnect = AsyncMock(side_effect=OSError("boom"))
+        for _ in range(SOCKET_RECOVERY_THRESHOLD):
+            await coord._async_update_data()
+        assert coord.socket_recreations == 0
 
     async def test_first_update_no_data_received(self):
         """First update: all APIs return None → had_success=False → warning logged."""

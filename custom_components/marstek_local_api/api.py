@@ -7,6 +7,7 @@ import json
 import logging
 import random
 import socket
+import sys
 import time
 from copy import deepcopy
 from typing import Any
@@ -93,8 +94,6 @@ class MarstekUDPClient:
             _LOGGER.debug("Already connected on port %s", self.port)
             return
 
-        loop = asyncio.get_event_loop()
-
         _LOGGER.info(
             "Connecting UDP socket: local_port=%s, remote_host=%s, remote_port=%s",
             self.port, self.host or "broadcast", self.remote_port
@@ -105,18 +104,7 @@ class MarstekUDPClient:
             # on the same port can receive all UDP messages
             if self.port not in _shared_transports:
                 # Create shared UDP endpoint for this port
-                import sys
-                endpoint_kwargs = {
-                    "local_addr": ("0.0.0.0", self.port),
-                    "allow_broadcast": True,
-                }
-                # reuse_port is not supported on Windows
-                if sys.platform != "win32":
-                    endpoint_kwargs["reuse_port"] = True
-                transport, protocol = await loop.create_datagram_endpoint(
-                    MarstekProtocol,
-                    **endpoint_kwargs,
-                )
+                transport, protocol = await self._create_endpoint()
                 _shared_transports[self.port] = transport
                 _shared_protocols[self.port] = protocol
                 _transport_refcounts[self.port] = 0
@@ -150,6 +138,57 @@ class MarstekUDPClient:
                 self.port, err, exc_info=True
             )
             raise
+
+    async def _create_endpoint(self) -> tuple[asyncio.DatagramTransport, "MarstekProtocol"]:
+        """Create a new UDP endpoint bound to this client's local port."""
+        endpoint_kwargs = {
+            "local_addr": ("0.0.0.0", self.port),
+            "allow_broadcast": True,
+        }
+        # reuse_port is not supported on Windows
+        if sys.platform != "win32":
+            endpoint_kwargs["reuse_port"] = True
+        return await asyncio.get_running_loop().create_datagram_endpoint(
+            MarstekProtocol,
+            **endpoint_kwargs,
+        )
+
+    async def reconnect(self) -> None:
+        """Force recreation of the shared UDP socket for this port.
+
+        Used to recover when the socket is silently dead (commands are sent but
+        no reply is ever received). Every client sharing the port is moved to
+        the new transport.
+        """
+        if not self._connected:
+            await self.connect()
+            return
+
+        port = self.port
+        _LOGGER.warning("Recreating shared UDP socket on port %s", port)
+
+        # Drop the registry entries *before* closing: close() schedules
+        # connection_lost(), which must not see the old protocol as current.
+        old_transport = _shared_transports.pop(port, None)
+        _shared_protocols.pop(port, None)
+        if old_transport is not None:
+            try:
+                old_transport.close()
+            except Exception as err:  # pylint: disable=broad-except
+                _LOGGER.warning("Error closing transport: %s", err)
+
+        transport, protocol = await self._create_endpoint()
+        _shared_transports[port] = transport
+        _shared_protocols[port] = protocol
+        _transport_refcounts.setdefault(port, 0)
+        clients = _clients_by_port.setdefault(port, [])
+        if self not in clients:
+            clients.append(self)
+            _transport_refcounts[port] += 1
+        for client in clients:
+            client.transport = transport
+            client.protocol = protocol
+            client._connected = True  # pylint: disable=protected-access
 
     async def disconnect(self) -> None:
         """Disconnect from the UDP socket."""
@@ -886,6 +925,24 @@ class MarstekProtocol(asyncio.DatagramProtocol):
     def error_received(self, exc: Exception) -> None:
         """Handle protocol errors."""
         _LOGGER.error("Protocol error: %s", exc)
+
+    def connection_lost(self, exc: Exception | None) -> None:
+        """Invalidate the shared socket if it was lost unexpectedly.
+
+        Deliberate closes (disconnect/reconnect) remove this protocol from the
+        registry first, so they are ignored here.
+        """
+        for port, protocol in list(_shared_protocols.items()):
+            if protocol is not self:
+                continue
+            _LOGGER.warning("UDP socket on port %s lost unexpectedly: %s", port, exc)
+            _shared_transports.pop(port, None)
+            _shared_protocols.pop(port, None)
+            _transport_refcounts.pop(port, None)
+            for client in _clients_by_port.pop(port, []):
+                client.transport = None
+                client.protocol = None
+                client._connected = False  # pylint: disable=protected-access
 
 
 class MarstekAPIError(Exception):

@@ -22,6 +22,7 @@ COMMAND_TIMEOUT: Final = 2  # Timeout for commands in seconds
 MAX_RETRIES: Final = 5  # Maximum retries for critical commands
 RETRY_DELAY: Final = 2  # Delay between retries in seconds
 COMMAND_MAX_ATTEMPTS: Final = 3  # Attempts per command before giving up
+SOCKET_RECOVERY_THRESHOLD: Final = 6  # Consecutive polling cycles with zero reply before recreating the UDP socket
 COMMAND_BACKOFF_BASE: Final = 1.5  # Base delay for command retry backoff
 COMMAND_BACKOFF_FACTOR: Final = 2.0  # Multiplier for successive backoff delays
 COMMAND_BACKOFF_MAX: Final = 12.0  # Upper bound on backoff delay

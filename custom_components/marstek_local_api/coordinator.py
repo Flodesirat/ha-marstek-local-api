@@ -23,6 +23,7 @@ from .const import (
     DEVICE_MODEL_VENUS_A,
     DEVICE_MODEL_VENUS_D,
     DOD_DEFAULT,
+    SOCKET_RECOVERY_THRESHOLD,
     STALE_DATA_THRESHOLD,
     UPDATE_INTERVAL_MEDIUM_SECS,
     UPDATE_INTERVAL_SLOW_SECS,
@@ -342,6 +343,8 @@ class MarstekDataUpdateCoordinator(DataUpdateCoordinator):
         jitter_cap = min(2.5, max(0.5, scan_interval * 0.1))
         self.poll_jitter = random.uniform(0.2, jitter_cap)
         self._last_update_start: float | None = None
+        self.consecutive_failed_cycles = 0
+        self.socket_recreations = 0
         self._config_entry = config_entry
         self._device_mac = device_mac  # Used for multi-device mode to identify which device to update
 
@@ -493,6 +496,27 @@ class MarstekDataUpdateCoordinator(DataUpdateCoordinator):
             f"{prefix}_last_error": stats.get("last_error"),
         }
         return diag
+
+    async def _async_maybe_recover_socket(self) -> None:
+        """Recreate the UDP socket after several polling cycles without any reply.
+
+        A dead socket looks exactly like an unreachable device (every command
+        times out, nothing raises), so after a few fully failed cycles we
+        rebuild it instead of waiting for a Home Assistant restart.
+        """
+        self.consecutive_failed_cycles += 1
+        if self.consecutive_failed_cycles < SOCKET_RECOVERY_THRESHOLD:
+            return
+        _LOGGER.warning(
+            "No reply from device for %d consecutive update cycles; recreating UDP socket",
+            self.consecutive_failed_cycles,
+        )
+        self.consecutive_failed_cycles = 0
+        try:
+            await self.api.reconnect()
+            self.socket_recreations += 1
+        except Exception as err:  # pylint: disable=broad-except
+            _LOGGER.error("Failed to recreate UDP socket: %s", err)
 
     async def _async_update_data(self) -> dict[str, Any]:  # pylint: disable=too-many-locals,too-many-statements
         """Fetch data from API with tiered polling strategy."""
@@ -721,11 +745,13 @@ class MarstekDataUpdateCoordinator(DataUpdateCoordinator):
             if had_success:
                 self.last_message_timestamp = time.time()
                 _LOGGER.debug("Updated data - at least one API call succeeded (keys: %s)", list(data.keys()))
+                self.consecutive_failed_cycles = 0
             else:
                 _LOGGER.debug(
                     "No fresh data this update - all API calls may have timed out, keeping previous values (keys: %s)",
                     list(data.keys()),
                 )
+                await self._async_maybe_recover_socket()
 
             # Add diagnostic data (will be recalculated on sensor access)
             es_stats = self.api.get_command_stats(METHOD_ES_STATUS)
@@ -738,6 +764,8 @@ class MarstekDataUpdateCoordinator(DataUpdateCoordinator):
                 "last_message_seconds": self._get_seconds_since_last_message(),
                 "target_interval": target_interval,
                 "actual_interval": actual_interval,
+                "consecutive_failed_cycles": self.consecutive_failed_cycles,
+                "socket_recreations": self.socket_recreations,
             }
             diagnostic_data.update(self._build_command_diagnostics("es", es_stats))
             diagnostic_data.update(self._build_command_diagnostics("bat", bat_stats))

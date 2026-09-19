@@ -436,6 +436,48 @@ class TestSendCommand:
 # connect / disconnect
 # ---------------------------------------------------------------------------
 
+class TestReconnectAndConnectionLost:
+
+    async def test_reconnect_replaces_shared_transport(self):
+        port = 39995
+        c1, c2 = _make_client(port=port), _make_client(port=port)
+        old = _inject_connected(c1, port)
+        _api_mod._clients_by_port[port] = [c1, c2]
+        _api_mod._transport_refcounts[port] = 2
+        c2.transport, c2.protocol, c2._connected = c1.transport, c1.protocol, True
+        new_t, new_p = _make_mock_transport(), MarstekProtocol()
+
+        async def fake_endpoint(factory, **kwargs):
+            return new_t, new_p
+
+        loop = asyncio.get_event_loop()
+        with patch.object(loop, "create_datagram_endpoint", side_effect=fake_endpoint):
+            await c1.reconnect()
+
+        old.close.assert_called_once()
+        assert _api_mod._shared_transports[port] is new_t
+        assert c1.transport is new_t and c2.transport is new_t
+        assert c2.protocol is new_p
+        assert _api_mod._transport_refcounts[port] == 2
+
+    async def test_connection_lost_invalidates_clients(self):
+        client = _make_client(port=39996)
+        _inject_connected(client, 39996)
+        client.protocol.connection_lost(None)
+        assert client._connected is False
+        assert client.transport is None
+        assert 39996 not in _api_mod._shared_transports
+        assert 39996 not in _api_mod._clients_by_port
+
+    async def test_connection_lost_ignored_for_replaced_protocol(self):
+        client = _make_client(port=39997)
+        _inject_connected(client, 39997)
+        stale = MarstekProtocol()
+        stale.connection_lost(None)
+        assert client._connected is True
+        assert 39997 in _api_mod._shared_transports
+
+
 class TestConnectDisconnect:
 
     async def test_connect_creates_shared_transport(self):
