@@ -77,8 +77,9 @@ MODE_AUTO: Final = "Auto"
 MODE_AI: Final = "AI"
 MODE_MANUAL: Final = "Manual"
 MODE_PASSIVE: Final = "Passive"
+MODE_UPS: Final = "UPS"  # Not in the Open API doc; charges from the grid
 
-OPERATING_MODES: Final = [MODE_AUTO, MODE_AI, MODE_MANUAL, MODE_PASSIVE]
+OPERATING_MODES: Final = [MODE_AUTO, MODE_AI, MODE_MANUAL, MODE_PASSIVE, MODE_UPS]
 
 # Battery states
 BATTERY_STATE_IDLE: Final = "idle"
@@ -98,7 +99,7 @@ DATA_COORDINATOR: Final = "coordinator"
 DATA_DEVICE_INFO: Final = "device_info"
 
 # Platforms
-PLATFORMS: Final = ["sensor", "binary_sensor", "button"]
+PLATFORMS: Final = ["sensor", "binary_sensor", "button", "select"]
 
 # Services
 SERVICE_REQUEST_SYNC: Final = "request_data_sync"

@@ -124,6 +124,24 @@ class _ButtonEntity:
     """Stub button entity base."""
 
 
+class _SelectEntity:
+    """Stub select entity base."""
+
+    @property
+    def options(self):
+        return self._attr_options
+
+
+class _RestoreEntity:
+    """Stub restore entity base (tests patch ``async_get_last_state``)."""
+
+    async def async_added_to_hass(self) -> None:
+        """No-op in unit tests."""
+
+    async def async_get_last_state(self):
+        return None
+
+
 class _ConfigFlowBase:
     """Stub base class for config flows — accepts domain= class keyword."""
     def __init_subclass__(cls, domain=None, **kwargs):
@@ -165,6 +183,9 @@ def _install_ha_stubs() -> None:
             ensure_list=lambda x: x if isinstance(x, list) else [x],
         ),
         "homeassistant.helpers.device_registry": _make_module("helpers.device_registry"),
+        "homeassistant.helpers.restore_state": _make_module(
+            "helpers.restore_state", RestoreEntity=_RestoreEntity
+        ),
         "homeassistant.helpers.selector": _make_module(
             "helpers.selector",
             NumberSelector=lambda *a, **kw: None,
@@ -192,6 +213,10 @@ def _install_ha_stubs() -> None:
             "components.button",
             ButtonEntity=_ButtonEntity,
         ),
+        "homeassistant.components.select": _make_module(
+            "components.select",
+            SelectEntity=_SelectEntity,
+        ),
         "homeassistant.components.binary_sensor": _make_module(
             "components.binary_sensor",
             BinarySensorDeviceClass=_BinarySensorDeviceClass,
@@ -202,7 +227,7 @@ def _install_ha_stubs() -> None:
             "const",
             CONF_HOST="host",
             PERCENTAGE="%",
-            Platform=type("Platform", (), {"SENSOR": "sensor", "BINARY_SENSOR": "binary_sensor", "BUTTON": "button"})(),
+            Platform=type("Platform", (), {"SENSOR": "sensor", "BINARY_SENSOR": "binary_sensor", "BUTTON": "button", "SELECT": "select"})(),
             UnitOfEnergy=_UnitOfEnergy(),
             UnitOfPower=_UnitOfPower(),
             UnitOfTemperature=_UnitOfTemperature(),

@@ -86,7 +86,7 @@ After setup you can return to **Settings → Devices & Services → Marstek Loca
 |  | `battery_time_to_full` / `battery_time_to_dod` | min | Estimated time to full charge / DOD limit | Fast | 30 s |
 | **Energy meter / CT** | `ct_phase_a_power`, `ct_phase_b_power`, `ct_phase_c_power` | W | Per-phase measurements (if CTs installed) | Fast | 30 s |
 |  | `ct_total_power` | W | CT aggregate | Fast | 30 s |
-| **Mode** | `operating_mode` | text | Current mode (read-only sensor) | Medium | 5 min |
+| **Mode** | `operating_mode` | text | Current mode (read-only sensor; Auto, AI, Manual, Passive or UPS) | Medium | 5 min |
 | **PV (Venus A / D only)** | `pv1_power`…`pv4_power` | W | Per-MPPT-channel power | Fast | 30 s |
 |  | `pv1_voltage`…`pv4_voltage` | V | Per-MPPT-channel voltage | Fast | 30 s |
 |  | `pv1_current`…`pv4_current` | A | Per-MPPT-channel current | Fast | 30 s |
@@ -100,15 +100,31 @@ After setup you can return to **Settings → Devices & Services → Marstek Loca
 
 Every sensor listed above also exists in an aggregated form under the **Marstek System** device whenever you manage multiple batteries together (prefixed with `system_`).
 
+### Operating Mode Select
+
+Each battery exposes a `select.<battery>_operating_mode` entity (e.g. `select.marstek_venus_a_operating_mode`) with four options:
+
+| Option | Mode sent with `ES.SetMode` |
+| --- | --- |
+| **Auto** | `Auto` (`auto_cfg.enable = 1`) |
+| **AI** | `AI` (`ai_cfg.enable = 1`) |
+| **Programmed** | `Manual`, with a disabled placeholder in slot 9, so your own schedules are left untouched |
+| **UPS** | `UPS` (`ups_cfg.enable = 1`), **charges from the grid**, see the warning below |
+
+- The mode is sent **once** when you pick an option; nothing maintains it afterwards. The select then shows what the battery reports (`ES.GetMode`, medium tier). If the battery is in a mode the select does not offer (e.g. Passive), the select shows *unknown*.
+- On a Home Assistant restart, the last option shown is **re-applied once**.
+
+> ⚠️ **UPS mode is not in the official Open API documentation.** Tested on a Venus A (firmware 148.7, reported as `1487`): `ES.SetMode` accepts it, `ES.GetMode` then reports `UPS`, and the battery **immediately starts charging from the grid** (about 1.3–1.5 kW at 19 % SOC). Selecting any other option leaves it. Still unknown: whether `ups_cfg` is required or takes other fields, what the battery does once full, and the name the Marstek app gives this mode. Use it knowingly.
+
 ### Mode Control Buttons
 
-Each battery exposes three button entities for quick mode switching:
+Each battery also exposes three button entities for quick mode switching:
 
 - `button.marstek_auto_mode` - Switch to Auto mode
 - `button.marstek_ai_mode` - Switch to AI mode
 - `button.marstek_manual_mode` - Switch to Manual mode
 
-The `sensor.marstek_operating_mode` displays the current active mode (Auto, AI, Manual, or Passive). **Passive mode** requires parameters (power and duration) and can only be activated via the `set_passive_mode` service (see Services section below).
+The `sensor.marstek_operating_mode` displays the current active mode (Auto, AI, Manual, Passive, or UPS). **Passive mode** requires parameters (power and duration) and can only be activated via the `set_passive_mode` service (see Services section below).
 
 ---
 
@@ -281,6 +297,7 @@ Known issues:
 - Battery temperature may read 10× too high on older BMS versions.
 - API call timeouts (shown as warnings in the log).
 - Some API calls are not supported on older firmware — please ensure devices are updated before filing issues.
+- `UPS` mode (operating mode select) is not documented by Marstek and charges the battery from the grid; see [Operating Mode Select](#operating-mode-select) for what has and has not been verified.
 - Manual mode requests must include a schedule: the API rejects `ES.SetMode` without `manual_cfg`, and because schedules are write-only the integration always sends a disabled placeholder in slot 9. Reapply your own slot 9 schedule after toggling Manual mode if needed.
 - Polling faster than 10 s is not advised; devices have been reported to become unstable (e.g. losing CT003 connection).
  - Energy counters / capacity fields may be reported in Wh instead of kWh on certain firmware (values appear 1000× off).

@@ -15,12 +15,13 @@ sys.modules.pop("custom_components.marstek_local_api.button", None)
 
 _api_mod = _load_integration_module("api")
 _coordinator_mod = _load_integration_module("coordinator")
+_modes_mod = _load_integration_module("modes")
 _button_mod = _load_integration_module("button")
 
 # ---------------------------------------------------------------------------
 # Public symbols
 # ---------------------------------------------------------------------------
-_mode_state_from_config = _button_mod._mode_state_from_config
+_mode_state_from_config = _modes_mod.mode_state_from_config
 async_setup_entry = _button_mod.async_setup_entry
 MarstekModeButton = _button_mod.MarstekModeButton
 MarstekAutoModeButton = _button_mod.MarstekAutoModeButton
@@ -30,7 +31,7 @@ MarstekMultiDeviceModeButton = _button_mod.MarstekMultiDeviceModeButton
 MarstekMultiDeviceAutoModeButton = _button_mod.MarstekMultiDeviceAutoModeButton
 MarstekMultiDeviceAIModeButton = _button_mod.MarstekMultiDeviceAIModeButton
 MarstekMultiDeviceManualModeButton = _button_mod.MarstekMultiDeviceManualModeButton
-DEFAULT_MANUAL_MODE_CFG = _button_mod.DEFAULT_MANUAL_MODE_CFG
+DEFAULT_MANUAL_MODE_CFG = _modes_mod.DEFAULT_MANUAL_MODE_CFG
 
 MarstekMultiDeviceCoordinator = _coordinator_mod.MarstekMultiDeviceCoordinator
 

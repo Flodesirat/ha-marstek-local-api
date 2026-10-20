@@ -22,31 +22,9 @@ from .const import (
     RETRY_DELAY,
 )
 from .coordinator import MarstekDataUpdateCoordinator, MarstekMultiDeviceCoordinator
+from .modes import build_mode_config, mode_state_from_config
 
 _LOGGER = logging.getLogger(__name__)
-
-DEFAULT_MANUAL_MODE_CFG: dict[str, int | str] = {
-    "time_num": 9,
-    "start_time": "00:00",
-    "end_time": "00:00",
-    "week_set": 0,
-    "power": 0,
-    "enable": 0,
-}
-
-
-def _mode_state_from_config(mode: str, config: dict) -> dict:
-    """Extract mode state information from a config payload."""
-    state: dict[str, object] = {"mode": mode}
-
-    if mode == MODE_AUTO and "auto_cfg" in config:
-        state["auto_cfg"] = dict(config["auto_cfg"])
-    elif mode == MODE_AI and "ai_cfg" in config:
-        state["ai_cfg"] = dict(config["ai_cfg"])
-    elif mode == MODE_MANUAL and "manual_cfg" in config:
-        state["manual_cfg"] = dict(config["manual_cfg"])
-
-    return state
 
 
 async def async_setup_entry(
@@ -192,29 +170,13 @@ class MarstekModeButton(CoordinatorEntity, ButtonEntity):
 
     def _build_mode_config(self) -> dict:
         """Build configuration for the selected mode."""
-        if self._mode == MODE_AUTO:
-            return {
-                "mode": MODE_AUTO,
-                "auto_cfg": {"enable": 1},
-            }
-        if self._mode == MODE_AI:
-            return {
-                "mode": MODE_AI,
-                "ai_cfg": {"enable": 1},
-            }
-        if self._mode == MODE_MANUAL:
-            return {
-                "mode": MODE_MANUAL,
-                "manual_cfg": dict(DEFAULT_MANUAL_MODE_CFG),
-            }
-
-        return {}
+        return build_mode_config(self._mode)
 
     def _update_cached_mode(self, config: dict) -> None:
         """Update coordinator cache so sensors reflect the new mode immediately."""
         current = self.coordinator.data or {}
         updated = dict(current)
-        mode_state = _mode_state_from_config(self._mode, config)
+        mode_state = mode_state_from_config(self._mode, config)
         updated["mode"] = {**(current.get("mode") or {}), **mode_state}
         self.coordinator.async_set_updated_data(updated)
 
@@ -380,23 +342,7 @@ class MarstekMultiDeviceModeButton(CoordinatorEntity, ButtonEntity):
 
     def _build_mode_config(self) -> dict:
         """Build configuration for the selected mode."""
-        if self._mode == MODE_AUTO:
-            return {
-                "mode": MODE_AUTO,
-                "auto_cfg": {"enable": 1},
-            }
-        if self._mode == MODE_AI:
-            return {
-                "mode": MODE_AI,
-                "ai_cfg": {"enable": 1},
-            }
-        if self._mode == MODE_MANUAL:
-            return {
-                "mode": MODE_MANUAL,
-                "manual_cfg": dict(DEFAULT_MANUAL_MODE_CFG),
-            }
-
-        return {}
+        return build_mode_config(self._mode)
 
     def _update_device_cache(self, state: dict) -> dict:
         """Update the per-device coordinator cache and return the new payload."""
@@ -408,7 +354,7 @@ class MarstekMultiDeviceModeButton(CoordinatorEntity, ButtonEntity):
 
     def _update_cached_mode(self, config: dict) -> None:
         """Update device and aggregate caches so sensors reflect the new mode immediately."""
-        state = _mode_state_from_config(self._mode, config)
+        state = mode_state_from_config(self._mode, config)
         updated_device = self._update_device_cache(state)
 
         current_system = self.coordinator.data or {}

@@ -25,8 +25,9 @@ marstek_local_api/
 ├── api.py                   # Local API client
 ├── sensor.py               # Sensor platform
 ├── binary_sensor.py        # Binary sensor platform
-├── switch.py               # Switch platform (future)
-└── select.py               # Select platform (operating modes)
+├── button.py               # Mode buttons (Auto / AI / Manual)
+├── select.py               # Operating mode select (Auto / AI / Programmed / UPS)
+└── modes.py                # ES.SetMode configs shared by buttons and select
 ```
 
 ### Data Flow
@@ -148,13 +149,13 @@ marstek_local_api/
 
 | Field | Type | Sensor | Description |
 |-------|------|--------|-------------|
-| mode | string | ✅ Select | Operating mode (Auto/AI/Manual/Passive) |
+| mode | string | ✅ Select | Operating mode (Auto/AI/Manual/Passive/UPS) |
 | ongrid_power | number | ✅ Sensor | Current grid power (W) |
 | offgrid_power | number | ✅ Sensor | Current off-grid power (W) |
 | bat_soc | number | ✅ Sensor | Battery SOC (%) |
 
 **Method:** `ES.SetMode` (Control)
-- Set operating mode: Auto, AI, Manual, Passive
+- Set operating mode: Auto, AI, Manual, Passive, UPS (UPS is undocumented)
 - Configure time schedules (Manual mode)
 - Set power limits (Passive mode)
 
@@ -379,13 +380,39 @@ Battery:
 ## Control Features
 
 ### Operating Mode Control
-**Entity:** `select.marstek_operating_mode`
+**Entity:** `select.<battery>_operating_mode` (`select.py`, one per battery,
+unique id `<mac>_operating_mode`)
 
-Options:
-- Auto: Automatic mode
-- AI: AI-based optimization
-- Manual: Time-based schedules
-- Passive: Fixed power control
+| Option | `ES.SetMode` config (`modes.build_mode_config`) |
+|--------|--------------------------------------------------|
+| Auto | `{"mode": "Auto", "auto_cfg": {"enable": 1}}` |
+| AI | `{"mode": "AI", "ai_cfg": {"enable": 1}}` |
+| Programmed | `{"mode": "Manual", "manual_cfg": <disabled slot 9>}` |
+| UPS | `{"mode": "UPS", "ups_cfg": {"enable": 1}}` |
+
+- **Programmed** is only a label: the API value is `Manual`. The disabled
+  slot 9 placeholder (`DEFAULT_MANUAL_MODE_CFG`) is required by the API and
+  leaves the user's schedules untouched.
+- **Send once, then follow the battery.** Selecting an option sends
+  `ES.SetMode` (low priority, up to `MAX_RETRIES` with `RETRY_DELAY`), then
+  writes the new mode into the coordinator cache, since `ES.GetMode` is only
+  polled on the medium tier. Nothing maintains the mode afterwards:
+  `current_option` is derived from the reported mode, and a mode the select
+  does not offer (Passive) shows as unknown.
+- **Restart.** The entity is a `RestoreEntity`. When the last state is one of
+  the options, it is re-applied once in a background task of the config
+  entry (cancelled on unload); a failure is only logged. Because the state
+  follows the battery, a mode changed from the Marstek app is what gets
+  re-applied, not an older selection.
+- In multi-device entries the entity listens to the system coordinator and
+  sends through the battery's own device coordinator; both caches are
+  updated.
+- **UPS** is not in the Open API document. Tested on a Venus A (fw 148.7, reported as `1487`):
+  accepted, reported back by `ES.GetMode`, and the battery charges from the
+  grid at once. Whether `ups_cfg` is required or takes other fields, and the
+  behaviour once full, are not verified.
+
+The mode buttons (`button.py`) remain and share the same configs.
 
 ### Future Controls (via ES.SetMode)
 - Manual mode schedules
