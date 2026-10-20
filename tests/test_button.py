@@ -583,3 +583,31 @@ class TestMarstekMultiDeviceModeButtonAsyncPress:
         btn = _make_multi_btn(dev_coord=dev_coord, coord=coord)
         with patch("asyncio.sleep"):
             await btn.async_press()  # must not raise
+
+
+# ===========================================================================
+# Drive mode: a mode button leaves it
+# ===========================================================================
+
+class TestModeButtonStopsDrive:
+    async def test_single_device_stops_drive(self):
+        coord = _make_coord()
+        btn = _make_single_btn(mode=MODE_AUTO, coord=coord)
+        with patch("asyncio.sleep"):
+            await btn.async_press()
+        coord.drive_controller.stop.assert_called_once_with()
+
+    async def test_multi_device_stops_drive(self):
+        dev_coord = _make_dev_coord()
+        btn = _make_multi_btn(mode=MODE_AUTO, dev_coord=dev_coord)
+        with patch("asyncio.sleep"):
+            await btn.async_press()
+        dev_coord.drive_controller.stop.assert_called_once_with()
+
+    async def test_without_controller(self):
+        coord = _make_coord()
+        coord.drive_controller = None
+        btn = _make_single_btn(mode=MODE_AUTO, coord=coord)
+        with patch("asyncio.sleep"):
+            await btn.async_press()
+        coord.api.set_es_mode.assert_called_once()

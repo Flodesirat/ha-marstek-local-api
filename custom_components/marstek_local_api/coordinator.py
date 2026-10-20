@@ -347,6 +347,7 @@ class MarstekDataUpdateCoordinator(DataUpdateCoordinator):
         self.socket_recreations = 0
         self._config_entry = config_entry
         self._device_mac = device_mac  # Used for multi-device mode to identify which device to update
+        self.drive_controller = None  # MarstekDriveController, set up in __init__.py
 
         # Staleness tracking - track last successful update per category
         self.category_last_updated: dict[str, float] = {}

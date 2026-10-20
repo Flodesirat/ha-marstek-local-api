@@ -102,7 +102,7 @@ Every sensor listed above also exists in an aggregated form under the **Marstek 
 
 ### Operating Mode Select
 
-Each battery exposes a `select.<battery>_operating_mode` entity (e.g. `select.marstek_venus_a_operating_mode`) with four options:
+Each battery exposes a `select.<battery>_operating_mode` entity (e.g. `select.marstek_venus_a_operating_mode`) with five options:
 
 | Option | Mode sent with `ES.SetMode` |
 | --- | --- |
@@ -110,11 +110,63 @@ Each battery exposes a `select.<battery>_operating_mode` entity (e.g. `select.ma
 | **AI** | `AI` (`ai_cfg.enable = 1`) |
 | **Programmed** | `Manual`, with a disabled placeholder in slot 9, so your own schedules are left untouched |
 | **UPS** | `UPS` (`ups_cfg.enable = 1`), **charges from the grid**, see the warning below |
+| **Drive** | `Passive` at the setpoint of `number.<battery>_drive_grid_power`, **maintained** by the integration, see [Drive Mode](#drive-mode) |
 
-- The mode is sent **once** when you pick an option; nothing maintains it afterwards. The select then shows what the battery reports (`ES.GetMode`, medium tier). If the battery is in a mode the select does not offer (e.g. Passive), the select shows *unknown*.
-- On a Home Assistant restart, the last option shown is **re-applied once**.
+- Auto, AI, Programmed and UPS are sent **once** when you pick them; nothing maintains them afterwards. The select then shows what the battery reports (`ES.GetMode`, medium tier). A battery reported in `Passive` is shown (and handled) as **Drive**.
+- On a Home Assistant restart, the last option shown is **re-applied once** (Drive restarts at 0 W).
 
 > ⚠️ **UPS mode is not in the official Open API documentation.** Tested on a Venus A (firmware 148.7, reported as `1487`): `ES.SetMode` accepts it, `ES.GetMode` then reports `UPS`, and the battery **immediately starts charging from the grid** (about 1.3–1.5 kW at 19 % SOC). Selecting any other option leaves it. Still unknown: whether `ups_cfg` is required or takes other fields, what the battery does once full, and the name the Marstek app gives this mode. Use it knowingly.
+
+### Drive Mode
+
+In **Drive**, Home Assistant holds a grid power setpoint and the integration keeps the battery applying it. An automation (or any external controller) only has to write the setpoint to:
+
+**`number.<battery>_drive_grid_power`** (e.g. `number.marstek_venus_a_drive_grid_power`), in W: **+ = discharge to the grid, − = charge**. Range: −max charge … +max discharge (see below). The value is only applied while the select is on **Drive**.
+
+How the setpoint is sent (`ES.SetMode` Passive, on the high-priority queue that goes ahead of polling):
+
+- **at once** when it moves by **30 W or more** from the value last accepted (or being sent); smaller changes wait for the refresh, so a little export or import is accepted;
+- **refreshed**: the exact current setpoint is re-sent at most **60 s** after the last accepted command;
+- **`cd_time` = 300 s** on every command: if Home Assistant stops, the battery leaves Passive on its own within 5 minutes;
+- **Passive kept up**: if polling reads any other mode while the select is on Drive (the battery was seen to drop back to Manual on its own), Passive is re-sent at once. Leaving Drive is therefore only possible from Home Assistant (the select or a mode button); a mode change made in the Marstek app is overwritten. This relies on `ES.GetMode` polling (medium tier, option *Poll operating mode*): with polling disabled the mode is not checked.
+
+Setpoint resets: entering Drive and restarting Home Assistant in Drive both reset the setpoint to **0 W**; Drive then waits for new setpoints. A battery found in Passive (e.g. after `set_passive_mode`) is treated as Drive at the current setpoint (0 W unless one was set), which also means `set_passive_mode` no longer holds its power: that service is superseded by Drive and will be removed ([#18](https://github.com/Flodesirat/ha-marstek-local-api/issues/18)).
+
+**Power limits.** The number's range comes from the battery model, and can be changed per battery in *Settings → Devices & services → Marstek Local API → Configure → Drive mode power limits*. Model defaults (charge / discharge), **not verified against Marstek datasheets**:
+
+| Model | Max charge | Max discharge |
+| --- | --- | --- |
+| Venus A | 2500 W | 1200 W |
+| Venus C | 2500 W | 2500 W |
+| Venus D | 2200 W | 2200 W |
+| Venus E | 2500 W | 2500 W |
+| Other | 2500 W | 2500 W |
+
+Example: an automation that keeps grid import near zero, from a grid meter `sensor.grid_power` (+ = import):
+
+```yaml
+automation:
+  - alias: "Battery: zero grid import"
+    trigger:
+      - platform: state
+        entity_id: sensor.grid_power
+    condition:
+      - condition: state
+        entity_id: select.marstek_venus_a_operating_mode
+        state: "Drive"
+    action:
+      - service: number.set_value
+        target:
+          entity_id: number.marstek_venus_a_drive_grid_power
+        data:
+          # New setpoint = current setpoint + what is still imported (clamped to the range)
+          value: >
+            {% set current = states('number.marstek_venus_a_drive_grid_power') | float(0) %}
+            {% set grid = states('sensor.grid_power') | float(0) %}
+            {{ [[current + grid, state_attr('number.marstek_venus_a_drive_grid_power', 'min')] | max,
+                state_attr('number.marstek_venus_a_drive_grid_power', 'max')] | min | round(0) }}
+    mode: queued
+```
 
 ### Mode Control Buttons
 
@@ -124,7 +176,9 @@ Each battery also exposes three button entities for quick mode switching:
 - `button.marstek_ai_mode` - Switch to AI mode
 - `button.marstek_manual_mode` - Switch to Manual mode
 
-The `sensor.marstek_operating_mode` displays the current active mode (Auto, AI, Manual, Passive, or UPS). **Passive mode** requires parameters (power and duration) and can only be activated via the `set_passive_mode` service (see Services section below).
+Pressing a mode button also leaves Drive.
+
+The `sensor.marstek_operating_mode` displays the current active mode (Auto, AI, Manual, Passive, or UPS). **Passive mode** is what the Drive option uses; it can also be set with the `set_passive_mode` service (see Services section below), which Drive now overrides.
 
 ---
 

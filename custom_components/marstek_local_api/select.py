@@ -20,6 +20,7 @@ from .const import (
     MODE_AI,
     MODE_AUTO,
     MODE_MANUAL,
+    MODE_PASSIVE,
     MODE_UPS,
     RETRY_DELAY,
 )
@@ -29,14 +30,17 @@ from .modes import build_mode_config, mode_state_from_config
 _LOGGER = logging.getLogger(__name__)
 
 OPTION_PROGRAMMED = "Programmed"
+OPTION_DRIVE = "Drive"
 
 # Select option -> mode sent to (and reported by) the battery.
-# "Programmed" is only a label: the API value stays "Manual".
+# "Programmed" is only a label: the API value stays "Manual". "Drive" is
+# applied through Passive mode by the battery's Drive controller.
 OPTION_TO_MODE: dict[str, str] = {
     MODE_AUTO: MODE_AUTO,
     MODE_AI: MODE_AI,
     OPTION_PROGRAMMED: MODE_MANUAL,
     MODE_UPS: MODE_UPS,
+    OPTION_DRIVE: MODE_PASSIVE,
 }
 MODE_TO_OPTION: dict[str, str] = {mode: option for option, mode in OPTION_TO_MODE.items()}
 
@@ -95,9 +99,11 @@ async def async_setup_entry(
 class MarstekOperatingModeSelect(CoordinatorEntity, SelectEntity, RestoreEntity):
     """Operating mode of one battery.
 
-    The mode is sent once when selected; nothing maintains it afterwards. The
-    select shows what the battery reports (ES.GetMode). On HA restart the last
-    shown option is re-applied once.
+    Auto / AI / Programmed / UPS are sent once when selected; nothing
+    maintains them afterwards. Drive hands over to the battery's Drive
+    controller, which keeps Passive applied. The select shows Drive while the
+    controller is active, otherwise what the battery reports (ES.GetMode). On
+    HA restart the last shown option is re-applied once.
 
     In single-device mode ``coordinator`` and ``device_coordinator`` are the
     same object. In multi-device mode ``coordinator`` is the system coordinator
@@ -139,14 +145,22 @@ class MarstekOperatingModeSelect(CoordinatorEntity, SelectEntity, RestoreEntity)
         return len(self._device_data) > 0
 
     @property
+    def _drive(self):
+        return self.device_coordinator.drive_controller
+
+    @property
     def current_option(self) -> str | None:
-        """Return the option matching the mode the battery reports."""
+        """Return Drive while it is active, else the option the battery reports."""
+        if self._drive is not None and self._drive.active:
+            return OPTION_DRIVE
         mode = (self._device_data.get("mode") or {}).get("mode")
         return MODE_TO_OPTION.get(mode)
 
     async def async_added_to_hass(self) -> None:
         """Re-apply the last selected option once after a restart."""
         await super().async_added_to_hass()
+        if self._drive is not None:
+            self.async_on_remove(self._drive.add_listener(self.async_write_ha_state))
 
         last_state = await self.async_get_last_state()
         if last_state is None or last_state.state not in self.options:
@@ -174,6 +188,16 @@ class MarstekOperatingModeSelect(CoordinatorEntity, SelectEntity, RestoreEntity)
         """Send ES.SetMode for ``option``, with retries."""
         if option not in OPTION_TO_MODE:
             raise HomeAssistantError(f"Unknown operating mode: {option}")
+
+        if option == OPTION_DRIVE:
+            if self._drive is None:
+                raise HomeAssistantError(f"Drive mode is not available for {self.device_mac}")
+            # Sent on the high-priority queue and retried until answered
+            self._drive.start()
+            return
+
+        if self._drive is not None:
+            self._drive.stop()
 
         mode = OPTION_TO_MODE[option]
         config = build_mode_config(mode)

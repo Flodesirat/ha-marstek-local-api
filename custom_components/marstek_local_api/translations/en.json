@@ -108,6 +108,25 @@
           "host": "IP Address",
           "port": "Port"
         }
+      },
+      "drive_power": {
+        "title": "Drive mode power limits",
+        "description": "Select the battery whose Drive power limits to edit",
+        "data": {
+          "device": "Device"
+        }
+      },
+      "drive_power_limits": {
+        "title": "Drive mode power limits",
+        "description": "Range of the Drive grid power setpoint for {device}. The defaults match the battery model.",
+        "data": {
+          "max_charge": "Maximum charge power (W)",
+          "max_discharge": "Maximum discharge power (W)"
+        },
+        "data_description": {
+          "max_charge": "Lowest setpoint is minus this value (charging from the grid).",
+          "max_discharge": "Highest setpoint (discharging to the grid)."
+        }
       }
     },
     "error": {

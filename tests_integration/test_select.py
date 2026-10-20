@@ -39,7 +39,7 @@ async def test_select_entity_created(hass, config_entry, mock_api):
 
     state = hass.states.get(_ENTITY_ID)
     assert state.state == "Programmed"
-    assert state.attributes["options"] == ["Auto", "AI", "Programmed", "UPS"]
+    assert state.attributes["options"] == ["Auto", "AI", "Programmed", "UPS", "Drive"]
     mock_api.set_es_mode.assert_not_called()
 
 
@@ -75,7 +75,7 @@ async def test_select_restored_and_reapplied(hass, config_entry, mock_api):
 
 @pytest.mark.asyncio
 async def test_select_unknown_state_not_reapplied(hass, config_entry, mock_api):
-    """An unknown restored state (battery was in Passive) sends nothing."""
+    """An unknown restored state sends nothing."""
     mock_restore_cache(hass, [State(_ENTITY_ID, "unknown")])
     _fake_battery_mode(mock_api, "Auto")
 

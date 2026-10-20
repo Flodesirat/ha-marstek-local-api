@@ -699,6 +699,46 @@ class TestOptionsFlowBatterySettings:
 
 
 # ---------------------------------------------------------------------------
+# OptionsFlow.async_step_drive_power / drive_power_limits
+# ---------------------------------------------------------------------------
+
+class TestOptionsFlowDrivePower:
+    async def test_action_drive_power_single_device_goes_to_limits(self):
+        flow = _make_options_flow(entry_data={"device": "VenusE", "ble_mac": "aabbccddeeff"})
+        result = await flow.async_step_init(user_input={"action": "drive_power"})
+        assert result["step_id"] == "drive_power_limits"
+        assert result["description_placeholders"] == {"device": "VenusE"}
+
+    async def test_multi_device_asks_for_the_battery_first(self):
+        flow = _make_options_flow(devices=[_SAMPLE_DEVICE, _SAMPLE_DEVICE2])
+        result = await flow.async_step_init(user_input={"action": "drive_power"})
+        assert result["step_id"] == "drive_power"
+
+        result = await flow.async_step_drive_power(user_input={"device": 1})
+        assert result["step_id"] == "drive_power_limits"
+        assert flow._drive_device is _SAMPLE_DEVICE2
+
+    async def test_limits_saved_per_battery_and_merged(self):
+        existing = {"112233445566": {"max_charge": 1000, "max_discharge": 800}}
+        flow = _make_options_flow(
+            devices=[_SAMPLE_DEVICE, _SAMPLE_DEVICE2],
+            options={"dod_percent": 90, "drive_power_limits": existing},
+        )
+        await flow.async_step_init(user_input=None)
+        await flow.async_step_drive_power(user_input={"device": 0})
+
+        result = await flow.async_step_drive_power_limits(user_input={"max_charge": 2000.0, "max_discharge": 1500.0})
+
+        assert result["type"] == "create_entry"
+        assert result["data"]["dod_percent"] == 90
+        assert result["data"]["drive_power_limits"] == {
+            "112233445566": {"max_charge": 1000, "max_discharge": 800},
+            "aabbccddeeff": {"max_charge": 2000, "max_discharge": 1500},
+        }
+        assert existing == {"112233445566": {"max_charge": 1000, "max_discharge": 800}}
+
+
+# ---------------------------------------------------------------------------
 # OptionsFlow.async_step_rename_device
 # ---------------------------------------------------------------------------
 

@@ -22,11 +22,12 @@ from .const import (
     UPDATE_INTERVAL_SLOW_SECS,
 )
 from .coordinator import CoordinatorConfig, MarstekDataUpdateCoordinator, MarstekMultiDeviceCoordinator
+from .drive import MarstekDriveController
 from .services import async_setup_services, async_unload_services
 
 _LOGGER = logging.getLogger(__name__)
 
-PLATFORMS: list[Platform] = [Platform.SENSOR, Platform.BINARY_SENSOR, Platform.BUTTON, Platform.SELECT]
+PLATFORMS: list[Platform] = [Platform.SENSOR, Platform.BINARY_SENSOR, Platform.BUTTON, Platform.SELECT, Platform.NUMBER]
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
@@ -104,6 +105,17 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
         # Fetch initial data
         await coordinator.async_config_entry_first_refresh()
+
+    # One Drive controller per battery, stopped on unload
+    if isinstance(coordinator, MarstekMultiDeviceCoordinator):
+        drive_targets = list(coordinator.device_coordinators.items())
+    else:
+        drive_targets = [(entry.data.get("ble_mac") or entry.data.get("wifi_mac"), coordinator)]
+    for mac, device_coordinator in drive_targets:
+        controller = MarstekDriveController(hass, entry, device_coordinator, coordinator, mac)
+        device_coordinator.drive_controller = controller
+        controller.async_setup()
+        entry.async_on_unload(controller.async_shutdown)
 
     # Store coordinator
     hass.data[DOMAIN][entry.entry_id] = {

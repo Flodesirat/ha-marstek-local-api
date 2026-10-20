@@ -75,6 +75,13 @@ async def async_setup_entry(
     async_add_entities(entities)
 
 
+def _stop_drive(device_coordinator) -> None:
+    """Leave Drive mode, otherwise its controller would re-impose Passive."""
+    controller = getattr(device_coordinator, "drive_controller", None)
+    if controller is not None:
+        controller.stop()
+
+
 class MarstekModeButton(CoordinatorEntity, ButtonEntity):
     """Base class for Marstek mode buttons."""
 
@@ -110,6 +117,7 @@ class MarstekModeButton(CoordinatorEntity, ButtonEntity):
     async def async_press(self) -> None:
         """Handle the button press."""
         config = self._build_mode_config()
+        _stop_drive(self.coordinator)
 
         success = False
         last_error: str | None = None
@@ -260,6 +268,7 @@ class MarstekMultiDeviceModeButton(CoordinatorEntity, ButtonEntity):
     async def async_press(self) -> None:
         """Handle the button press."""
         config = self._build_mode_config()
+        _stop_drive(self.device_coordinator)
 
         success = False
         last_error: str | None = None

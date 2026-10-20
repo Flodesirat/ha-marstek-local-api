@@ -1,7 +1,7 @@
 """Operating mode configs shared by the mode buttons and the mode select."""
 from __future__ import annotations
 
-from .const import MODE_AI, MODE_AUTO, MODE_MANUAL, MODE_UPS
+from .const import DRIVE_CD_TIME, MODE_AI, MODE_AUTO, MODE_MANUAL, MODE_PASSIVE, MODE_UPS
 
 # Manual mode requires a schedule: send a disabled slot 9 so the user's own
 # schedules are left untouched.
@@ -30,6 +30,11 @@ def build_mode_config(mode: str) -> dict:
     if mode in MODE_CFG_KEYS:
         return {"mode": mode, MODE_CFG_KEYS[mode]: {"enable": 1}}
     return {}
+
+
+def build_drive_config(power: int) -> dict:
+    """Build the Passive ES.SetMode config that applies a Drive setpoint."""
+    return {"mode": MODE_PASSIVE, "passive_cfg": {"power": int(power), "cd_time": DRIVE_CD_TIME}}
 
 
 def mode_state_from_config(mode: str, config: dict) -> dict:

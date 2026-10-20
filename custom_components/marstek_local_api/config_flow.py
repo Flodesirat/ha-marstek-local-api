@@ -20,6 +20,9 @@ from homeassistant.helpers.selector import NumberSelector, NumberSelectorConfig,
 from .api import MarstekAPIError, MarstekUDPClient
 from .const import (
     COMMAND_MAX_ATTEMPTS,
+    CONF_DRIVE_MAX_CHARGE,
+    CONF_DRIVE_MAX_DISCHARGE,
+    CONF_DRIVE_POWER_LIMITS,
     COMMAND_MIN_INTERVAL,
     COMMAND_TIMEOUT,
     CONF_PORT,
@@ -32,6 +35,7 @@ from .const import (
     UPDATE_INTERVAL_MEDIUM_SECS,
     UPDATE_INTERVAL_SLOW_SECS,
 )
+from .drive import drive_power_limits
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -371,6 +375,7 @@ class OptionsFlow(config_entries.OptionsFlow):
         """Initialise the options flow."""
         self._devices: list[dict[str, Any]] = []
         self._discovered_devices: list[dict[str, Any]] = []
+        self._drive_device: dict[str, Any] | None = None
 
     async def async_step_init(
         self, user_input: dict[str, Any] | None = None
@@ -383,6 +388,7 @@ class OptionsFlow(config_entries.OptionsFlow):
         actions: dict[str, str] = {
             "scan_interval": "Adjust communication timings and thresholds",
             "battery_settings": "Battery settings (DOD and usable capacity)",
+            "drive_power": "Drive mode power limits",
         }
 
         if self._devices:
@@ -400,6 +406,8 @@ class OptionsFlow(config_entries.OptionsFlow):
                 return await self.async_step_scan_interval()
             if action == "battery_settings":
                 return await self.async_step_battery_settings()
+            if action == "drive_power":
+                return await self.async_step_drive_power()
             if action == "rename_device":
                 return await self.async_step_rename_device()
             if action == "remove_device":
@@ -506,6 +514,60 @@ class OptionsFlow(config_entries.OptionsFlow):
                     ),
                 }
             ),
+        )
+
+    async def async_step_drive_power(
+        self, user_input: dict[str, Any] | None = None
+    ) -> FlowResult:
+        """Pick the battery whose Drive power limits to edit (multi-device only)."""
+        if not self._devices:
+            self._drive_device = dict(self.config_entry.data)
+            return await self.async_step_drive_power_limits()
+
+        if user_input is not None:
+            self._drive_device = self._devices[user_input["device"]]
+            return await self.async_step_drive_power_limits()
+
+        device_options = {
+            idx: f"{device.get('device', f'Device {idx + 1}')} ({device.get('host')}:{device.get('port')})"
+            for idx, device in enumerate(self._devices)
+        }
+        return self.async_show_form(
+            step_id="drive_power",
+            data_schema=vol.Schema({vol.Required("device", default=0): vol.In(device_options)}),
+        )
+
+    async def async_step_drive_power_limits(
+        self, user_input: dict[str, Any] | None = None
+    ) -> FlowResult:
+        """Edit the Drive power limits of one battery (defaults: its model's)."""
+        device = self._drive_device or {}
+        mac = device.get("ble_mac") or device.get("wifi_mac")
+        opts = self.config_entry.options
+
+        if user_input is not None:
+            limits = dict(opts.get(CONF_DRIVE_POWER_LIMITS) or {})
+            limits[mac] = {
+                CONF_DRIVE_MAX_CHARGE: int(user_input[CONF_DRIVE_MAX_CHARGE]),
+                CONF_DRIVE_MAX_DISCHARGE: int(user_input[CONF_DRIVE_MAX_DISCHARGE]),
+            }
+            return self.async_create_entry(title="", data={**opts, CONF_DRIVE_POWER_LIMITS: limits})
+
+        charge, discharge = drive_power_limits(opts, mac, device.get("device", ""))
+        power_selector = NumberSelector(
+            NumberSelectorConfig(min=0, max=10000, step=1, unit_of_measurement="W", mode=NumberSelectorMode.BOX)
+        )
+        return self.async_show_form(
+            step_id="drive_power_limits",
+            data_schema=vol.Schema(
+                {
+                    vol.Required(CONF_DRIVE_MAX_CHARGE, default=charge): vol.All(power_selector, vol.Coerce(int)),
+                    vol.Required(CONF_DRIVE_MAX_DISCHARGE, default=discharge): vol.All(
+                        power_selector, vol.Coerce(int)
+                    ),
+                }
+            ),
+            description_placeholders={"device": device.get("device", "")},
         )
 
     async def async_step_rename_device(

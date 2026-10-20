@@ -55,6 +55,7 @@ def _make_dev_coord(mode="Auto"):
     coord.api.set_es_mode = AsyncMock(return_value=True)
     coord.async_refresh = AsyncMock()
     coord.async_set_updated_data = MagicMock(side_effect=lambda data: setattr(coord, "data", data))
+    coord.drive_controller = None
     return coord
 
 
@@ -157,11 +158,11 @@ class TestAsyncSetupEntry:
 class TestState:
     def test_options(self):
         entity, _ = _make_single()
-        assert entity.options == ["Auto", "AI", "Programmed", "UPS"]
+        assert entity.options == ["Auto", "AI", "Programmed", "UPS", "Drive"]
 
     @pytest.mark.parametrize(
         ("reported", "expected"),
-        [("Auto", "Auto"), ("AI", "AI"), ("Manual", "Programmed"), ("UPS", "UPS"), ("Passive", None)],
+        [("Auto", "Auto"), ("AI", "AI"), ("Manual", "Programmed"), ("UPS", "UPS"), ("Passive", "Drive")],
     )
     def test_current_option_follows_reported_mode(self, reported, expected):
         entity, _ = _make_single(mode=reported)
@@ -278,3 +279,75 @@ class TestRestore:
             await entity._async_reapply("UPS")
 
         assert coord.api.set_es_mode.await_count == MAX_RETRIES
+
+
+# ===========================================================================
+# Drive option
+# ===========================================================================
+
+def _with_drive(entity, coord, active=False):
+    drive = MagicMock()
+    drive.active = active
+    drive.add_listener = MagicMock(return_value="unsub")
+    coord.drive_controller = drive
+    return drive
+
+
+class TestDrive:
+    def test_drive_maps_to_passive(self):
+        assert OPTION_TO_MODE["Drive"] == "Passive"
+
+    def test_current_option_is_drive_while_controller_active(self):
+        entity, coord = _make_single(mode="Manual")
+        drive = _with_drive(entity, coord, active=True)
+        assert entity.current_option == "Drive"
+        drive.active = False
+        assert entity.current_option == "Programmed"
+
+    async def test_selecting_drive_starts_the_controller(self):
+        entity, coord = _make_single()
+        drive = _with_drive(entity, coord)
+
+        await entity.async_select_option("Drive")
+
+        drive.start.assert_called_once_with()
+        coord.api.set_es_mode.assert_not_called()
+
+    async def test_drive_without_controller_raises(self):
+        entity, coord = _make_single()
+        with pytest.raises(Exception, match="Drive mode is not available"):
+            await entity.async_select_option("Drive")
+
+    @pytest.mark.parametrize("option", list(EXPECTED_CONFIGS))
+    async def test_other_option_stops_the_controller_first(self, option):
+        entity, coord = _make_single()
+        drive = _with_drive(entity, coord, active=True)
+        order = []
+        drive.stop.side_effect = lambda: order.append("stop")
+        coord.api.set_es_mode = AsyncMock(side_effect=lambda config: order.append("send") or True)
+
+        await entity.async_select_option(option)
+
+        assert order == ["stop", "send"]
+
+    async def test_follows_controller_updates(self):
+        entity, coord = _make_single()
+        drive = _with_drive(entity, coord)
+        entity.async_on_remove = MagicMock()
+
+        await entity.async_added_to_hass()
+
+        drive.add_listener.assert_called_once_with(entity.async_write_ha_state)
+        entity.async_on_remove.assert_called_once_with("unsub")
+
+    async def test_restored_drive_restarts_at_zero(self):
+        entity, coord = _make_single(mode="Passive")
+        drive = _with_drive(entity, coord)
+        entity.async_on_remove = MagicMock()
+        entity.async_get_last_state = AsyncMock(return_value=SimpleNamespace(state="Drive"))
+
+        await entity.async_added_to_hass()
+        _hass, coro, _name = entity._entry.async_create_background_task.call_args[0]
+        await coro
+
+        drive.start.assert_called_once_with()

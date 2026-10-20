@@ -224,6 +224,7 @@ Venus E (192.168.1.10)
 │
 ├── Energy System
 │   ├── Operating Mode (select)
+│   ├── Drive Grid Power (number)
 │   ├── Grid Power (W)
 │   ├── Off-Grid Power (W)
 │   ├── Total PV Energy (Wh)
@@ -389,16 +390,20 @@ unique id `<mac>_operating_mode`)
 | AI | `{"mode": "AI", "ai_cfg": {"enable": 1}}` |
 | Programmed | `{"mode": "Manual", "manual_cfg": <disabled slot 9>}` |
 | UPS | `{"mode": "UPS", "ups_cfg": {"enable": 1}}` |
+| Drive | `{"mode": "Passive", "passive_cfg": {"power": <setpoint>, "cd_time": 300}}` (`modes.build_drive_config`), sent by the Drive controller |
 
 - **Programmed** is only a label: the API value is `Manual`. The disabled
   slot 9 placeholder (`DEFAULT_MANUAL_MODE_CFG`) is required by the API and
   leaves the user's schedules untouched.
-- **Send once, then follow the battery.** Selecting an option sends
+- **Send once, then follow the battery** (all options but Drive). Selecting an option stops the Drive controller, then sends
   `ES.SetMode` (low priority, up to `MAX_RETRIES` with `RETRY_DELAY`), then
   writes the new mode into the coordinator cache, since `ES.GetMode` is only
   polled on the medium tier. Nothing maintains the mode afterwards:
-  `current_option` is derived from the reported mode, and a mode the select
-  does not offer (Passive) shows as unknown.
+  `current_option` is Drive while the battery's Drive controller is active,
+  otherwise it is derived from the reported mode (Passive maps to Drive).
+- **Drive** only calls `MarstekDriveController.start()` and returns: the
+  command goes through the high-priority queue, which retries until answered,
+  so the select does not wait for it.
 - **Restart.** The entity is a `RestoreEntity`. When the last state is one of
   the options, it is re-applied once in a background task of the config
   entry (cancelled on unload); a failure is only logged. Because the state
@@ -412,12 +417,60 @@ unique id `<mac>_operating_mode`)
   grid at once. Whether `ups_cfg` is required or takes other fields, and the
   behaviour once full, are not verified.
 
-The mode buttons (`button.py`) remain and share the same configs.
+The mode buttons (`button.py`) remain and share the same configs. Pressing
+one also stops the Drive controller, which would otherwise re-impose Passive.
+
+### Drive Controller
+**Module:** `drive.py`, `MarstekDriveController`, one per battery, created in
+`async_setup_entry` and stored as `device_coordinator.drive_controller`;
+`async_shutdown` is registered with `entry.async_on_unload`.
+**Entity:** `number.<battery>_drive_grid_power` (`number.py`, unique id
+`<mac>_drive_grid_power`), a thin view of the controller's `setpoint`.
+
+State: `active`, `setpoint` (W, + = discharge to the grid, − = charge),
+`accepted_power` (last value the battery accepted), `_pending_power` (value
+of the send in progress), one refresh timer (`loop.call_later`).
+
+| Event | Action |
+|-------|--------|
+| `start()` (select → Drive, or restored Drive) | setpoint = 0 W, active, send now |
+| `set_setpoint(v)` | clamp to the range, store; if active and \|v − reference\| ≥ `DRIVE_MIN_STEP` (30 W), send now. Reference = pending value, else accepted value |
+| Command accepted | `accepted_power` = value, Passive written into the caches, refresh in `DRIVE_REFRESH_INTERVAL` (60 s) |
+| Command rejected or failed | refresh in 60 s |
+| `MarstekCommandSuperseded` | ignored: a newer setpoint is being sent |
+| Refresh timer | if active and nothing pending, send the exact setpoint |
+| New `ES.GetMode` poll, active, mode ≠ Passive, nothing pending | send now (Passive re-imposed) |
+| New poll, inactive, mode changes to Passive | active with the current setpoint (no reset), send now |
+| `stop()` (other option, mode button, unload) | inactive, timer cancelled, send task cancelled |
+
+- **Sends** use `api.set_es_mode(config, priority=True)` in an entry
+  background task. A new send does not wait for the previous one: the API's
+  single high-priority slot replaces it, and the replaced call raises
+  `MarstekCommandSuperseded`. A late result is dropped when `_pending_power`
+  no longer matches.
+- **Every command carries `cd_time` = `DRIVE_CD_TIME` (300 s)**, so the
+  battery leaves Passive on its own within 5 minutes if HA stops refreshing.
+- **Poll detection.** The controller listens to the entity coordinator (the
+  system coordinator in multi-device entries) and reacts only when
+  `category_last_updated["mode"]` changes, so cache-only updates (including
+  its own) are ignored. Passive activates Drive only on a *transition*: after
+  `stop()` the cache still says Passive until the next mode lands, and that
+  must not restart Drive.
+- **Cache update** writes `coordinator.data` and calls
+  `async_update_listeners()` rather than `async_set_updated_data()`, which
+  would reschedule polling on every setpoint change.
+- **Power limits:** `drive_power_limits(options, mac, model)` returns the
+  per-battery option `drive_power_limits[mac]` (`max_charge`,
+  `max_discharge`; options step *Drive mode power limits*), else
+  `DRIVE_POWER_LIMITS[base model]`, else `DRIVE_DEFAULT_POWER_LIMITS`. The
+  number's range is fixed at setup; changing the options reloads the entry.
+- **Known limit:** the mode check relies on `ES.GetMode` polling (medium tier,
+  `poll_mode` option); a drop out of Passive is noticed within one medium
+  interval at worst.
 
 ### Future Controls (via ES.SetMode)
 - Manual mode schedules
 - Power limit settings
-- Passive mode power/countdown
 
 ---
 

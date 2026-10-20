@@ -132,6 +132,18 @@ class _SelectEntity:
         return self._attr_options
 
 
+class _NumberEntity:
+    """Stub number entity base."""
+
+
+class _NumberDeviceClass:
+    POWER = "power"
+
+
+class _NumberMode:
+    BOX = "box"
+
+
 class _RestoreEntity:
     """Stub restore entity base (tests patch ``async_get_last_state``)."""
 
@@ -217,6 +229,12 @@ def _install_ha_stubs() -> None:
             "components.select",
             SelectEntity=_SelectEntity,
         ),
+        "homeassistant.components.number": _make_module(
+            "components.number",
+            NumberEntity=_NumberEntity,
+            NumberDeviceClass=_NumberDeviceClass,
+            NumberMode=_NumberMode,
+        ),
         "homeassistant.components.binary_sensor": _make_module(
             "components.binary_sensor",
             BinarySensorDeviceClass=_BinarySensorDeviceClass,
@@ -227,7 +245,7 @@ def _install_ha_stubs() -> None:
             "const",
             CONF_HOST="host",
             PERCENTAGE="%",
-            Platform=type("Platform", (), {"SENSOR": "sensor", "BINARY_SENSOR": "binary_sensor", "BUTTON": "button", "SELECT": "select"})(),
+            Platform=type("Platform", (), {"SENSOR": "sensor", "BINARY_SENSOR": "binary_sensor", "BUTTON": "button", "SELECT": "select", "NUMBER": "number"})(),
             UnitOfEnergy=_UnitOfEnergy(),
             UnitOfPower=_UnitOfPower(),
             UnitOfTemperature=_UnitOfTemperature(),
