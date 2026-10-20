@@ -132,11 +132,11 @@ How the setpoint is sent (`ES.SetMode` Passive, on the high-priority queue that 
 
 Setpoint resets: entering Drive and restarting Home Assistant in Drive both reset the setpoint to **0 W**; Drive then waits for new setpoints. A battery found in Passive (e.g. after `set_passive_mode`) is treated as Drive at the current setpoint (0 W unless one was set), which also means `set_passive_mode` no longer holds its power: that service is superseded by Drive and will be removed ([#18](https://github.com/Flodesirat/ha-marstek-local-api/issues/18)).
 
-**Power limits.** The number's range comes from the battery model, and can be changed per battery in *Settings → Devices & services → Marstek Local API → Configure → Drive mode power limits*. Model defaults (charge / discharge), **not verified against Marstek datasheets**:
+**Power limits.** The number's range comes from the battery model, and can be changed per battery in *Settings → Devices & services → Marstek Local API → Configure → Drive mode power limits*. Model defaults (charge / discharge); only the Venus A values are confirmed, the others are **not verified against Marstek datasheets**:
 
 | Model | Max charge | Max discharge |
 | --- | --- | --- |
-| Venus A | 2500 W | 1200 W |
+| Venus A | 1500 W | 1500 W |
 | Venus C | 2500 W | 2500 W |
 | Venus D | 2200 W | 2200 W |
 | Venus E | 2500 W | 2500 W |

@@ -82,7 +82,7 @@ class TestPowerLimits:
         [
             ("VenusE", (2500, 2500)),
             ("VenusE 3.0", (2500, 2500)),
-            ("Venus A", (2500, 1200)),
+            ("Venus A", (1500, 1500)),
             ("VenusC", (2500, 2500)),
             ("VenusD", (2200, 2200)),
             ("Unknown", (2500, 2500)),
@@ -99,7 +99,7 @@ class TestPowerLimits:
 
     def test_controller_range(self):
         controller, _ = _make_controller(model="Venus A")
-        assert (controller.min_power, controller.max_power) == (-2500, 1200)
+        assert (controller.min_power, controller.max_power) == (-1500, 1500)
 
     def test_controller_range_from_options(self):
         options = {"drive_power_limits": {_MAC: {"max_charge": 1500, "max_discharge": 600}}}
@@ -293,11 +293,11 @@ class TestSendingRules:
 
         controller.set_setpoint(5000)
         await _settle()
-        assert controller.setpoint == 1200
+        assert controller.setpoint == 1500
         controller.set_setpoint(-5000)
         await _settle()
-        assert controller.setpoint == -2500
-        coord.api.set_es_mode.assert_awaited_with(_drive_config(-2500), priority=True)
+        assert controller.setpoint == -1500
+        coord.api.set_es_mode.assert_awaited_with(_drive_config(-1500), priority=True)
         controller.stop()
 
     @pytest.mark.parametrize("outcome", [False, Exception("timeout")])

@@ -81,8 +81,8 @@ async def test_number_entity_created(hass, config_entry, mock_api):
     assert registry.async_get_entity_id("number", DOMAIN, f"{_MAC}_drive_grid_power") == _NUMBER
     state = hass.states.get(_NUMBER)
     assert float(state.state) == 0
-    assert state.attributes["min"] == -2500
-    assert state.attributes["max"] == 1200
+    assert state.attributes["min"] == -1500
+    assert state.attributes["max"] == 1500
     assert state.attributes["unit_of_measurement"] == "W"
     assert "Drive" in hass.states.get(_SELECT).attributes["options"]
 

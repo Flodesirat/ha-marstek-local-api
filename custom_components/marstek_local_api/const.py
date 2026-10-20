@@ -90,10 +90,11 @@ DRIVE_MIN_STEP: Final = 30  # W: smaller setpoint changes wait for the refresh
 DRIVE_REFRESH_INTERVAL: Final = 60  # s: setpoint re-sent at most this long after the last accepted command
 DRIVE_CD_TIME: Final = 300  # s: Passive countdown; the battery leaves Passive on its own if HA stops
 # Default (max charge W, max discharge W) per base model, overridable per battery
-# in the options. Not verified against Marstek datasheets; models not listed use
+# in the options. Venus A confirmed by the maintainer; the others are not verified
+# against Marstek datasheets. Models not listed use
 # DRIVE_DEFAULT_POWER_LIMITS.
 DRIVE_POWER_LIMITS: Final = {
-    DEVICE_MODEL_VENUS_A: (2500, 1200),
+    DEVICE_MODEL_VENUS_A: (1500, 1500),
     DEVICE_MODEL_VENUS_C: (2500, 2500),
     DEVICE_MODEL_VENUS_D: (2200, 2200),
     DEVICE_MODEL_VENUS_E: (2500, 2500),
