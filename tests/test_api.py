@@ -291,7 +291,7 @@ class TestSendCommand:
 
     def _setup_with_result(self, result: dict, addr=("192.168.1.100", 30000)):
         """Client whose transport auto-responds with a success result."""
-        client = _make_client(command_timeout=2, command_max_attempts=1)
+        client = _make_client(command_timeout=2, command_max_attempts=1, command_min_interval=0.0)
         transport = _inject_connected(client)
 
         async def fake_sendto(data, dest):
@@ -592,26 +592,22 @@ class TestCommandMinInterval:
     # Rate-limiting sleep
     # ------------------------------------------------------------------
 
-    async def test_rate_limiting_sleep_applied_when_too_soon(self):
-        """When last send was very recent, a compensating sleep is injected."""
-        client = _make_client(command_min_interval=1.0, command_timeout=0.05, command_max_attempts=1)
-        _inject_connected(client)
+    async def test_rate_limiting_wait_applied_when_too_soon(self):
+        """When last send was very recent, the frame waits for the next slot."""
+        client = _make_client(command_min_interval=0.3, command_timeout=0.05, command_max_attempts=1)
+        transport = _inject_connected(client)
 
-        # Pretend a command was sent 0.1 s ago → 0.9 s still needed
+        # Pretend a command was sent 0.1 s ago → 0.2 s still needed
         loop = asyncio.get_running_loop()
         client._last_send_time = loop.time() - 0.1
+        started = loop.time()
+        send_times = []
+        transport.sendto = MagicMock(side_effect=lambda d, dest: send_times.append(loop.time()))
 
-        sleep_args = []
+        await client.send_command("Bat.GetStatus")
 
-        async def capture(t):
-            sleep_args.append(t)
-
-        with patch.object(_api_mod.asyncio, "sleep", side_effect=capture):
-            await client.send_command("Bat.GetStatus")
-
-        positive = [t for t in sleep_args if t > 0]
-        assert len(positive) >= 1, "Expected at least one rate-limiting sleep"
-        assert positive[0] == pytest.approx(0.9, abs=0.05)
+        assert len(send_times) == 1
+        assert send_times[0] - started == pytest.approx(0.2, abs=0.05)
 
     async def test_no_rate_limiting_sleep_when_interval_elapsed(self):
         """When the interval has already elapsed, no extra sleep is added."""
@@ -791,3 +787,276 @@ class TestSetEsMode:
         client = _make_client()
         with patch.object(client, "send_command", new_callable=AsyncMock, return_value=None):
             assert await client.set_es_mode({"mode": "Auto"}) is False
+
+    async def test_priority_flag_forwarded(self):
+        client = _make_client()
+        with patch.object(client, "send_command", new_callable=AsyncMock, return_value={"set_result": True}) as send:
+            assert await client.set_es_mode({"mode": "Passive"}, priority=True) is True
+        assert send.await_args.kwargs["priority"] is True
+
+
+# ---------------------------------------------------------------------------
+# Send scheduling — high-priority queue (#15)
+# ---------------------------------------------------------------------------
+
+# Real timings scaled down: 1 s → 20 ms. The schedule is checked by shape.
+_S = 0.02
+_MIN_INTERVAL = 5 * _S
+_TIMEOUT = 2 * _S
+_TOL = 0.05
+_HOST_ADDR = ("192.168.1.100", 30000)
+
+
+class _FakeDevice:
+    """Records every frame sent and replies through ``answer(msg)``."""
+
+    def __init__(self, client: MarstekUDPClient, answer=None) -> None:
+        self.client = client
+        self.frames: list[tuple[float, dict]] = []
+        self.answer = answer or (lambda msg: [])
+        transport = _inject_connected(client)
+        transport.sendto = MagicMock(side_effect=self._sendto)
+
+    def _sendto(self, data, dest) -> None:
+        msg = json.loads(data.decode())
+        self.frames.append((asyncio.get_running_loop().time(), msg))
+        for response in self.answer(msg):
+            self.reply(response)
+
+    def reply(self, response: dict) -> None:
+        asyncio.create_task(
+            self.client._handle_message(json.dumps(response).encode(), _HOST_ADDR)
+        )
+
+    def methods(self) -> list[str]:
+        return [msg["method"] for _, msg in self.frames]
+
+    def gaps(self) -> list[float]:
+        times = [t for t, _ in self.frames]
+        return [b - a for a, b in zip(times, times[1:])]
+
+    async def wait_frames(self, count: int, limit: float = 5.0) -> None:
+        loop = asyncio.get_running_loop()
+        deadline = loop.time() + limit
+        while len(self.frames) < count:
+            assert loop.time() < deadline, f"only {len(self.frames)} frame(s) sent"
+            await asyncio.sleep(0.005)
+
+
+def _answer_set_mode(msg: dict) -> list[dict]:
+    """Device that answers ES.SetMode only."""
+    if msg["method"] == "ES.SetMode":
+        return [{"id": msg["id"], "result": {"set_result": True}}]
+    return []
+
+
+def _scheduling_client(max_attempts: int = 3) -> MarstekUDPClient:
+    client = _make_client(
+        command_min_interval=_MIN_INTERVAL,
+        command_timeout=_TIMEOUT,
+        command_max_attempts=max_attempts,
+    )
+    client.priority_retry_delays = tuple(d * _S for d in _const_mod.PRIORITY_RETRY_DELAYS)
+    # Low-priority backoff shorter than the slot spacing, as with real values
+    client._compute_backoff_delay = lambda attempt: 1.5 * _S
+    return client
+
+
+async def _cancel(task: asyncio.Task) -> None:
+    task.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await task
+
+
+class TestPriorityScheduling:
+
+    def test_retry_schedule_constant(self):
+        assert _const_mod.PRIORITY_RETRY_DELAYS == (5, 10, 15, 30, 60)
+
+    async def test_priority_preempts_in_flight_polling(self):
+        """A high-priority frame takes the next slot; polling resumes after it."""
+        client = _scheduling_client(max_attempts=3)
+        device = _FakeDevice(client, _answer_set_mode)
+
+        low = asyncio.create_task(client.send_command("Bat.GetStatus"))
+        await device.wait_frames(1)
+        assert await client.set_es_mode({"mode": "Passive"}, priority=True) is True
+        assert await low is None
+
+        assert device.methods() == ["Bat.GetStatus", "ES.SetMode", "Bat.GetStatus", "Bat.GetStatus"]
+        # Worst-case latency is one slot spacing
+        assert device.gaps()[0] == pytest.approx(_MIN_INTERVAL, abs=_TOL)
+        # The paused request kept its id and its attempt count
+        low_ids = {msg["id"] for _, msg in device.frames if msg["method"] == "Bat.GetStatus"}
+        assert len(low_ids) == 1
+        assert client.get_command_stats("Bat.GetStatus")["total_timeouts"] == 3
+
+    async def test_new_priority_frame_replaces_unsent_one(self):
+        """Only the latest high-priority frame is sent; the replaced caller is told."""
+        client = _scheduling_client(max_attempts=1)
+        device = _FakeDevice(client, _answer_set_mode)
+
+        low = asyncio.create_task(client.send_command("Bat.GetStatus"))
+        await device.wait_frames(1)
+        first = asyncio.create_task(client.set_es_mode({"mode": "Passive", "power": 100}, priority=True))
+        await asyncio.sleep(0)
+        second = asyncio.create_task(client.set_es_mode({"mode": "Passive", "power": 200}, priority=True))
+
+        with pytest.raises(_api_mod.MarstekCommandSuperseded):
+            await first
+        assert await second is True
+        await low
+
+        assert device.methods() == ["Bat.GetStatus", "ES.SetMode"]
+        assert device.frames[1][1]["params"]["config"]["power"] == 200
+
+    async def test_replacement_restarts_retry_schedule(self):
+        """A pending retry is replaced too, and the schedule restarts for the new frame."""
+        client = _scheduling_client()
+        device = _FakeDevice(client)  # Never answers
+
+        first = asyncio.create_task(client.send_command("ES.SetMode", {"id": 0}, priority=True))
+        await device.wait_frames(3)  # Sent, then retried after 5 s and 10 s
+        second = asyncio.create_task(client.send_command("ES.SetMode", {"id": 0}, priority=True))
+        with pytest.raises(_api_mod.MarstekCommandSuperseded):
+            await first
+        await device.wait_frames(6)
+        await _cancel(second)
+
+        ids = [msg["id"] for _, msg in device.frames]
+        assert len(set(ids[:3])) == 1 and len(set(ids[3:])) == 1 and ids[0] != ids[3]
+        # Replacement goes out at the next slot, then 5 s and 10 s again
+        assert device.gaps()[2] == pytest.approx(_MIN_INTERVAL, abs=_TOL)
+        assert device.gaps()[3:] == pytest.approx([5 * _S, 10 * _S], abs=_TOL)
+        assert client._priority_frame is None
+
+    async def test_priority_retry_schedule(self):
+        """Retries after 5, 10, 15, 30 s, then every 60 s while unanswered."""
+        client = _scheduling_client()
+        device = _FakeDevice(client)  # Never answers
+
+        task = asyncio.create_task(client.send_command("ES.SetMode", {"id": 0}, priority=True))
+        await device.wait_frames(7, limit=10)
+        await _cancel(task)
+
+        assert device.gaps() == pytest.approx([d * _S for d in (5, 10, 15, 30, 60, 60)], abs=_TOL)
+        assert client.get_command_stats("ES.SetMode")["total_timeouts"] >= 6
+
+    async def test_min_interval_kept_between_all_frames(self):
+        """Polling uses the slots between retries; every frame keeps the spacing."""
+        client = _scheduling_client(max_attempts=2)
+        device = _FakeDevice(client)  # Never answers
+
+        high = asyncio.create_task(client.send_command("ES.SetMode", {"id": 0}, priority=True))
+        await device.wait_frames(1)
+
+        async def polling():
+            for _ in range(3):
+                await client.send_command("Bat.GetStatus")
+
+        await asyncio.wait_for(polling(), timeout=10)
+        await _cancel(high)
+
+        methods = device.methods()
+        assert methods.count("Bat.GetStatus") == 6
+        assert all(gap >= _MIN_INTERVAL - 0.01 for gap in device.gaps()), device.gaps()
+        # The high-priority retries stayed on schedule despite the polling
+        high_times = [t for t, msg in device.frames if msg["method"] == "ES.SetMode"]
+        high_gaps = [b - a for a, b in zip(high_times, high_times[1:])]
+        expected = [d * _S for d in (5, 10, 15, 30, 60)][: len(high_gaps)]
+        assert high_gaps == pytest.approx(expected, abs=_TOL)
+
+    async def test_late_low_answer_still_matched(self):
+        """A late answer to a paused polling request completes it without a resend."""
+        client = _scheduling_client(max_attempts=3)
+        low_id = []
+
+        def answer(msg):
+            if msg["method"] == "Bat.GetStatus":
+                low_id.append(msg["id"])
+                return []
+            # The battery answers the old polling request during the high exchange
+            return [{"id": low_id[0], "result": {"soc": 42}}] + _answer_set_mode(msg)
+
+        device = _FakeDevice(client, answer)
+        low = asyncio.create_task(client.send_command("Bat.GetStatus"))
+        await device.wait_frames(1)
+        assert await client.set_es_mode({"mode": "Passive"}, priority=True) is True
+
+        assert await low == {"soc": 42}
+        assert device.methods() == ["Bat.GetStatus", "ES.SetMode"]
+        stats = client.get_command_stats("Bat.GetStatus")
+        assert stats["last_success"] is True and stats["last_attempt"] == 1
+
+    async def test_late_priority_answer_still_matched(self):
+        """An answer to an earlier high-priority attempt stops the retries."""
+        client = _scheduling_client()
+        device = _FakeDevice(client)
+
+        task = asyncio.create_task(client.send_command("ES.SetMode", {"id": 0}, priority=True))
+        await device.wait_frames(1)
+        await asyncio.sleep(_TIMEOUT + 0.01)  # First attempt timed out
+        device.reply({"id": device.frames[0][1]["id"], "result": {"set_result": True}})
+
+        assert await task == {"set_result": True}
+        assert len(device.frames) == 1
+        assert client._priority_frame is None
+
+    async def test_replaced_frame_in_flight_still_gets_its_answer(self):
+        """A frame already sent is not recalled: its answer is returned."""
+        client = _scheduling_client()
+        device = _FakeDevice(client)
+
+        first = asyncio.create_task(client.send_command("ES.SetMode", {"id": 0}, priority=True))
+        await device.wait_frames(1)
+        second = asyncio.create_task(client.send_command("ES.SetMode", {"id": 0}, priority=True))
+        await asyncio.sleep(0)
+        device.reply({"id": device.frames[0][1]["id"], "result": {"set_result": True}})
+
+        assert await first == {"set_result": True}
+        await device.wait_frames(2)
+        assert device.gaps()[0] >= _MIN_INTERVAL - 0.01
+        await _cancel(second)
+
+    async def test_priority_api_error_raises(self):
+        """An error answer ends a high-priority request."""
+        client = _scheduling_client()
+        _FakeDevice(client, lambda msg: [{"id": msg["id"], "error": {"code": -32602, "message": "Invalid params"}}])
+
+        with pytest.raises(MarstekAPIError, match="Invalid params"):
+            await client.send_command("ES.SetMode", {"id": 0}, priority=True)
+        assert client._priority_frame is None
+
+    async def test_priority_send_error_is_retried(self):
+        """A send failure is retried on the high-priority schedule."""
+        client = _scheduling_client()
+        _FakeDevice(client, _answer_set_mode)
+        real_send = client._send_to_host
+        calls = []
+
+        async def flaky_send(payload):
+            calls.append(payload)
+            if len(calls) == 1:
+                raise OSError("network unreachable")
+            await real_send(payload)
+
+        client._send_to_host = flaky_send
+        assert await client.set_es_mode({"mode": "Passive"}, priority=True) is True
+        assert len(calls) == 2
+        assert client.get_command_stats("ES.SetMode")["total_failures"] == 1
+
+    async def test_cancelled_priority_frame_frees_the_queue(self):
+        """Cancelling the caller drops its frame; polling is no longer held back."""
+        client = _scheduling_client(max_attempts=1)
+        device = _FakeDevice(client)
+
+        low = asyncio.create_task(client.send_command("Bat.GetStatus"))
+        await device.wait_frames(1)
+        high = asyncio.create_task(client.send_command("ES.SetMode", {"id": 0}, priority=True))
+        await asyncio.sleep(0)
+        await _cancel(high)
+        await low
+        await client.send_command("Bat.GetStatus")
+
+        assert device.methods() == ["Bat.GetStatus", "Bat.GetStatus"]
+        assert client._priority_frame is None and not client._in_flight

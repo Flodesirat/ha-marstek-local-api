@@ -315,7 +315,7 @@ class MarstekLocalAPI:
     async def get_pv_status(self, ip: str, port: int) -> dict
     async def get_es_status(self, ip: str, port: int) -> dict
     async def get_es_mode(self, ip: str, port: int) -> dict
-    async def set_es_mode(self, ip: str, port: int, config: dict) -> bool
+    async def set_es_mode(self, ip: str, port: int, config: dict, *, priority: bool = False) -> bool
     async def get_em_status(self, ip: str, port: int) -> dict
 ```
 
@@ -521,6 +521,55 @@ async def set_mode(config: dict, retries: int = 5):
                 await asyncio.sleep(2)
                 continue
             raise
+```
+
+### Send Scheduling
+
+The battery handles one request at a time and drops frames sent too close
+together. `MarstekUDPClient` therefore sends every UDP frame, including each
+retry, in its own **send slot**:
+
+- **One frame in flight.** After a frame is sent, nothing else goes out until
+  its answer arrives or it times out (`command_timeout`).
+- **Spacing.** Two frames are at least `command_min_interval` apart (5 s by
+  default), counted from the moment each frame is sent.
+- **Two priorities.** A high-priority frame that is due takes the next slot.
+  Low-priority traffic only uses slots that come before the next high-priority
+  retry.
+
+**Low priority** (`send_command(...)`, polling and the current services):
+`_send_lock` keeps low-priority requests in order. A request holds the lock
+across all its attempts, so its attempt count, exponential backoff and
+statistics are unchanged. Each attempt still asks for a slot of its own, so a
+high-priority frame can preempt a request between two attempts. The paused
+request then resumes after the high-priority exchange. Its handler stays
+registered with the same `id` the whole time, so an answer that arrives late,
+during the pause, completes the request without a resend.
+
+**High priority** (`send_command(..., priority=True)`,
+`set_es_mode(config, priority=True)`):
+
+- The high-priority queue holds a single frame (`_priority_frame`). A new call
+  replaces the frame not yet sent, including a pending retry. The replaced
+  caller gets `MarstekCommandSuperseded`, and the retry schedule restarts for
+  the new frame. A frame already in flight is not recalled: if its answer
+  arrives, its caller still gets it.
+- While the battery does not answer, the frame is retried after
+  `PRIORITY_RETRY_DELAYS` = 5, 10, 15, 30 s, then every 60 s. Delays are
+  counted from the previous send. `max_attempts` does not apply: the request
+  ends on an answer (success or API error), on replacement, or when the caller
+  cancels it.
+- Worst-case latency for a new high-priority frame is just under
+  `command_min_interval`: the time left since the last frame. This holds while
+  `command_timeout` (2 s by default) is shorter than that spacing; otherwise
+  the frame may also wait for the in-flight frame to time out.
+- A low-priority frame that goes out just before a retry is due delays that
+  retry by up to one spacing. With the default values, slots line up with the
+  retry schedule and this does not happen while polling waits for a slot.
+
+The scheduler state is small: `_in_flight`, `_last_send_time`,
+`_priority_frame` (with its `due` time), and an event that wakes waiting
+senders whenever this state changes (`_notify_scheduler`).
 
 ## Diagnostics & Telemetry
 

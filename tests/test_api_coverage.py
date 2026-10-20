@@ -100,7 +100,7 @@ class TestSendCommandRetry:
 
     async def test_generic_exception_retries_and_raises(self):
         """Generic exception is recorded per-attempt, then re-raised after all retries."""
-        client = _make_client(command_timeout=0.001, command_max_attempts=2)
+        client = _make_client(command_timeout=0.001, command_max_attempts=2, command_min_interval=0.0)
         _inject_connected(client)
 
         attempt_count = [0]
@@ -121,7 +121,7 @@ class TestSendCommandRetry:
 
     async def test_backoff_sleep_called_between_attempts(self):
         """asyncio.sleep is called with a backoff delay between failed attempts."""
-        client = _make_client(command_timeout=0.001, command_max_attempts=2)
+        client = _make_client(command_timeout=0.001, command_max_attempts=2, command_min_interval=0.0)
         _inject_connected(client)
 
         sleep_values = []
