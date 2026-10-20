@@ -36,7 +36,6 @@ SERVICE_REQUEST_SYNC = _const_mod.SERVICE_REQUEST_SYNC
 SERVICE_SET_MANUAL_SCHEDULE = _const_mod.SERVICE_SET_MANUAL_SCHEDULE
 SERVICE_SET_MANUAL_SCHEDULES = _const_mod.SERVICE_SET_MANUAL_SCHEDULES
 SERVICE_CLEAR_MANUAL_SCHEDULES = _const_mod.SERVICE_CLEAR_MANUAL_SCHEDULES
-SERVICE_SET_PASSIVE_MODE = _const_mod.SERVICE_SET_PASSIVE_MODE
 MODE_MANUAL = _const_mod.MODE_MANUAL
 MODE_PASSIVE = _const_mod.MODE_PASSIVE
 
@@ -354,7 +353,7 @@ class TestAsyncSetupServices:
         await async_setup_services(hass)
         hass.services.async_register.assert_not_called()
 
-    async def test_registers_all_five_services(self):
+    async def test_registers_all_four_services(self):
         hass = _make_hass()
         await async_setup_services(hass)
         registered_names = {
@@ -365,7 +364,15 @@ class TestAsyncSetupServices:
         assert SERVICE_SET_MANUAL_SCHEDULE in registered_names
         assert SERVICE_SET_MANUAL_SCHEDULES in registered_names
         assert SERVICE_CLEAR_MANUAL_SCHEDULES in registered_names
-        assert SERVICE_SET_PASSIVE_MODE in registered_names
+        assert len(registered_names) == 4
+
+    async def test_set_passive_mode_is_not_registered(self):
+        """set_passive_mode was removed: Drive mode replaces it (#18)."""
+        hass = _make_hass()
+        await async_setup_services(hass)
+        registered_names = {call[0][1] for call in hass.services.async_register.call_args_list}
+        assert "set_passive_mode" not in registered_names
+        assert not hasattr(_const_mod, "SERVICE_SET_PASSIVE_MODE")
 
 
 class TestAsyncUnloadServices:
@@ -374,7 +381,7 @@ class TestAsyncUnloadServices:
         hass = _make_hass()
         hass.services.has_service.return_value = True
         await async_unload_services(hass)
-        assert hass.services.async_remove.call_count == 5
+        assert hass.services.async_remove.call_count == 4
 
     async def test_unload_none_registered(self):
         hass = _make_hass()
@@ -659,45 +666,3 @@ class TestClearManualSchedulesHandler:
         coord, error = await self._run([False])
         coord.async_set_updated_data.assert_not_called()
         assert error is not None
-
-
-# ---------------------------------------------------------------------------
-# _async_set_passive_mode handler
-# ---------------------------------------------------------------------------
-
-class TestSetPassiveModeHandler:
-
-    async def _setup(self, coord):
-        mac = "aa:bb:cc:dd:ee:ff"
-        hass = _make_hass(domain_data={"entry1": {DATA_COORDINATOR: coord}})
-        handlers = await _setup_handlers(hass)
-        handler = handlers[SERVICE_SET_PASSIVE_MODE]
-        device_entry = _make_device_entry(
-            config_entries={"entry1"}, identifiers=[(DOMAIN, mac)]
-        )
-        registry = _make_registry(device_entry)
-        return handler, registry
-
-    async def test_success(self):
-        coord = _make_single_coord()
-        handler, registry = await self._setup(coord)
-        with patch.object(_services_mod.dr, "async_get", create=True, return_value=registry):
-            await handler(_make_call({"device_id": "dev1", "power": -500, "duration": 3600}))
-        coord.api.set_es_mode.assert_awaited_once()
-        coord.async_set_updated_data.assert_called_once()
-
-    async def test_rejected_raises(self):
-        coord = _make_single_coord()
-        coord.api.set_es_mode = AsyncMock(return_value=False)
-        handler, registry = await self._setup(coord)
-        with patch.object(_services_mod.dr, "async_get", create=True, return_value=registry):
-            with pytest.raises(HomeAssistantError, match="Failed to set passive mode"):
-                await handler(_make_call({"device_id": "dev1", "power": 0, "duration": 60}))
-
-    async def test_exception_raises(self):
-        coord = _make_single_coord()
-        coord.api.set_es_mode = AsyncMock(side_effect=RuntimeError("timeout"))
-        handler, registry = await self._setup(coord)
-        with patch.object(_services_mod.dr, "async_get", create=True, return_value=registry):
-            with pytest.raises(HomeAssistantError, match="Failed to set passive mode"):
-                await handler(_make_call({"device_id": "dev1", "power": 200, "duration": 120}))

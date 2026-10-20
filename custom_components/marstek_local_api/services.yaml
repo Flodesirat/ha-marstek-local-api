@@ -133,37 +133,3 @@ clear_manual_schedules:
       selector:
         device:
           integration: marstek_local_api
-
-set_passive_mode:
-  name: Set Passive Mode
-  description: Switch the selected battery to Passive mode with specified power and duration. Negative power values charge (e.g., -2000 = charge at 2000W), positive values discharge (e.g., 1500 = discharge at 1500W).
-  fields:
-    device_id:
-      name: Battery
-      description: "Select the battery whose passive mode you want to change."
-      required: true
-      selector:
-        device:
-          integration: marstek_local_api
-    power:
-      name: Power
-      description: Power in watts. Negative values = charging (e.g., -2000 = charge at 2000W), positive values = discharging (e.g., 1500 = discharge at 1500W).
-      required: true
-      example: -2000
-      selector:
-        number:
-          min: -10000
-          max: 10000
-          step: 100
-          unit_of_measurement: W
-    duration:
-      name: Duration
-      description: Duration in seconds (1-86400). For example, 3600 = 1 hour.
-      required: true
-      example: 3600
-      selector:
-        number:
-          min: 1
-          max: 86400
-          step: 60
-          unit_of_measurement: s

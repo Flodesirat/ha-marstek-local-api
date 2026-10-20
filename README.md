@@ -130,7 +130,7 @@ How the setpoint is sent (`ES.SetMode` Passive, on the high-priority queue that 
 - **`cd_time` = 300 s** on every command: if Home Assistant stops, the battery leaves Passive on its own within 5 minutes;
 - **Passive kept up**: if polling reads any other mode while the select is on Drive (the battery was seen to drop back to Manual on its own), Passive is re-sent at once. Leaving Drive is therefore only possible from Home Assistant (the select or a mode button); a mode change made in the Marstek app is overwritten. This relies on `ES.GetMode` polling (medium tier, option *Poll operating mode*): with polling disabled the mode is not checked.
 
-Setpoint resets: entering Drive and restarting Home Assistant in Drive both reset the setpoint to **0 W**; Drive then waits for new setpoints. A battery found in Passive (e.g. after `set_passive_mode`) is treated as Drive at the current setpoint (0 W unless one was set), which also means `set_passive_mode` no longer holds its power: that service is superseded by Drive and will be removed ([#18](https://github.com/Flodesirat/ha-marstek-local-api/issues/18)).
+Setpoint resets: entering Drive and restarting Home Assistant in Drive both reset the setpoint to **0 W**; Drive then waits for new setpoints. A battery found in Passive (e.g. set from the Marstek app or the standalone CLI) is treated as Drive at the current setpoint (0 W unless one was set).
 
 **Power limits.** The number's range comes from the battery model, and can be changed per battery in *Settings → Devices & services → Marstek Local API → Configure → Drive mode power limits*. Model defaults (charge / discharge); only the Venus A values are confirmed, the others are **not verified against Marstek datasheets**:
 
@@ -178,7 +178,7 @@ Each battery also exposes three button entities for quick mode switching:
 
 Pressing a mode button also leaves Drive.
 
-The `sensor.marstek_operating_mode` displays the current active mode (Auto, AI, Manual, Passive, or UPS). **Passive mode** is what the Drive option uses; it can also be set with the `set_passive_mode` service (see Services section below), which Drive now overrides.
+The `sensor.marstek_operating_mode` displays the current active mode (Auto, AI, Manual, Passive, or UPS). **Passive mode** is what the Drive option uses.
 
 ---
 
@@ -278,56 +278,40 @@ data:
 
 You can call these services from **Developer Tools → Services** or use them in automations and scripts.
 
-### Passive Mode Control
+### Removed: `set_passive_mode` (breaking change)
 
-The `marstek_local_api.set_passive_mode` service enables **Passive mode** for direct power control. Passive mode allows you to charge or discharge the selected battery at a specific power level for a defined duration.
+> ⚠️ **Breaking change:** the `marstek_local_api.set_passive_mode` service has been **removed** ([#18](https://github.com/Flodesirat/ha-marstek-local-api/issues/18)). Automations or scripts that still call it fail with an unknown-service error. It sent a single Passive command with no refresh; [Drive Mode](#drive-mode) replaces it and keeps the power applied.
 
-**Important:** Power values use signed integers:
-- **Negative values** = Charging (e.g., `-2000` means charge at 2000W)
-- **Positive values** = Discharging (e.g., `1500` means discharge at 1500W)
+**Migration:** select **Drive**, write the power to the setpoint number (same sign convention: − = charge, + = discharge), and switch the select to another mode when you are done (the old `duration` becomes a delay in your automation):
 
-#### Service Parameters
-
-| Parameter | Required | Type | Range | Description |
-| --- | --- | --- | --- | --- |
-| `device_id` | Yes | string | - | Battery to control. The integration communicates with the selected device directly. |
-| `power` | Yes | integer | -10000 to 10000 | Power in watts (negative = charge, positive = discharge) |
-| `duration` | Yes | integer | 1 to 86400 | Duration in seconds (max 24 hours) |
-
-#### Examples
-
-**Charge at 2000W for 1 hour:**
 ```yaml
-service: marstek_local_api.set_passive_mode
-data:
-  device_id: "1234567890abcdef1234567890abcdef"
-  power: -2000  # Negative = charging
-  duration: 3600  # 1 hour in seconds
+# Before
+- service: marstek_local_api.set_passive_mode
+  data:
+    device_id: "1234567890abcdef1234567890abcdef"
+    power: -2000
+    duration: 3600
+
+# After
+- service: select.select_option
+  target:
+    entity_id: select.marstek_venus_a_operating_mode
+  data:
+    option: Drive
+- service: number.set_value
+  target:
+    entity_id: number.marstek_venus_a_drive_grid_power
+  data:
+    value: -2000  # Set after selecting Drive: entering Drive resets the setpoint to 0 W
+- delay: "01:00:00"
+- service: select.select_option
+  target:
+    entity_id: select.marstek_venus_a_operating_mode
+  data:
+    option: Auto
 ```
 
-**Discharge at 1500W for 30 minutes:**
-```yaml
-service: marstek_local_api.set_passive_mode
-data:
-  device_id: "1234567890abcdef1234567890abcdef"
-  power: 1500  # Positive = discharging
-  duration: 1800  # 30 minutes in seconds
-```
-
-**Use in an automation (charge during cheap electricity hours):**
-```yaml
-automation:
-  - alias: "Charge battery during off-peak hours"
-    trigger:
-      - platform: time
-        at: "02:00:00"
-    action:
-      - service: marstek_local_api.set_passive_mode
-        data:
-          device_id: "1234567890abcdef1234567890abcdef"
-          power: -3000  # Charge at 3000W
-          duration: 14400  # 4 hours
-```
+If Home Assistant stops during that time, the battery leaves Passive on its own within 5 minutes (`cd_time` = 300 s), instead of after the full `duration`. To send a one-off Passive command outside Home Assistant, the standalone CLI keeps `test_tool.py set-passive` (see [Standalone tools](#standalone-tools)).
 
 ---
 
